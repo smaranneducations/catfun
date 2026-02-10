@@ -78,12 +78,16 @@ def _upload_pdf(pdf_path: str) -> str:
     return document_urn
 
 
-def _create_text_post(text: str, document_urn: str = "") -> dict:
+def _create_text_post(text: str, document_urn: str = "",
+                      document_title: str = "") -> dict:
     """Create a LinkedIn post with optional document attachment."""
 
     author = config.LINKEDIN_PERSON_URN
     if not author.startswith("urn:"):
         author = f"urn:li:person:{author}"
+
+    # Dynamic, catchy document title — never generic "AI Strategy Brief"
+    doc_title = document_title or "AI Strategy Brief"
 
     # Try the newer /posts API first (supports documents natively)
     if document_urn:
@@ -100,7 +104,7 @@ def _create_text_post(text: str, document_urn: str = "") -> dict:
             "content": {
                 "media": {
                     "id": document_urn,
-                    "title": "AI Strategy Brief",
+                    "title": doc_title,
                 }
             },
         }
@@ -154,20 +158,28 @@ def _create_text_post(text: str, document_urn: str = "") -> dict:
         return {"status": "failed", "error": resp.text[:500]}
 
 
-def post_brief(pdf_path: str, post_text: str, story: dict = None) -> dict:
+def post_brief(pdf_path: str, post_text: str, story: dict = None,
+               document_title: str = None) -> dict:
     """Upload PDF to LinkedIn and create a document post.
 
     Falls back to text-only post if PDF upload fails.
     After successful post, stores embedding for semantic dedup.
+
+    Args:
+        document_title: Catchy, topic-specific title shown in LinkedIn's
+                       carousel view. Should be attention-grabbing, NOT generic.
     """
     print("\n  [LinkedIn] Starting post...")
+    if document_title:
+        print(f"  [LinkedIn] Document title: {document_title}")
 
     # Try document post first
     doc_urn = _upload_pdf(pdf_path)
 
     result = None
     if doc_urn:
-        result = _create_text_post(post_text, document_urn=doc_urn)
+        result = _create_text_post(post_text, document_urn=doc_urn,
+                                   document_title=document_title or "")
         if result.get("status") != "success":
             result = None
 

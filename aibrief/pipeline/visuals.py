@@ -57,6 +57,9 @@ def generate_cover_image(headline: str, design: dict, run_id: str) -> str:
     primary = design.get("primary_color", "#1a1a2e")
     accent = design.get("accent_color", "#00d4aa")
 
+    # Use image_generation_key from DesignDNA for visual coherence
+    image_key = design.get("image_generation_key", "")
+
     prompt = (
         f"Abstract editorial art for a luxury consulting report cover about: "
         f"'{headline}'. Style: {mood}, premium, sophisticated. "
@@ -66,6 +69,8 @@ def generate_cover_image(headline: str, design: dict, run_id: str) -> str:
         f"High contrast, dramatic lighting, minimal but impactful composition. "
         f"16:9 widescreen format."
     )
+    if image_key:
+        prompt += f" Visual coherence directive: {image_key}."
 
     try:
         print(f"  [DALL-E] Generating cover image...")
@@ -94,6 +99,9 @@ def generate_section_image(section_title: str, design: dict, run_id: str,
     mood = design.get("mood", "sophisticated")
     accent = design.get("accent_color", "#00d4aa")
 
+    # Use image_generation_key from DesignDNA for visual coherence
+    image_key = design.get("image_generation_key", "")
+
     prompt = (
         f"Minimalist abstract editorial illustration for a section titled "
         f"'{section_title}'. Style: {mood}, luxury editorial. "
@@ -101,6 +109,8 @@ def generate_section_image(section_title: str, design: dict, run_id: str,
         f"decorative element. No text. Subtle, artistic, premium feel. "
         f"Square format, white or light background."
     )
+    if image_key:
+        prompt += f" Visual coherence directive: {image_key}."
 
     try:
         resp = _openai.images.generate(

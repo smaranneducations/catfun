@@ -1,16 +1,31 @@
-"""AI Brief — AI Thought Leadership PDF + LinkedIn Publisher.
+"""AI Brief — Autonomous AI Thought Leadership Publisher.
 
-Scans for viral AI news, creates a multi-perspective analysis through
-a team of AI agents who discuss and critique each other, generates a
-high-end PDF brief, and posts to LinkedIn with proper formatting.
+Full autonomous pipeline:
+  Phase 0:  World Pulse → scan global sentiment
+  Phase 1:  Content Strategy → choose content type + length
+  Phase 2:  Topic Discovery → find topic + semantic dedup
+  Phase 3:  Design DNA → visual identity + debate
+  Phase 4:  Analyst Pairs → 4× preparer/reviewer argue
+  Phase 5:  Round Table → cross-agent challenges
+  Phase 6:  Editorial Oversight → editor reviews all
+  Phase 7:  Content Synthesis → writer + copy reviewer argue
+  Phase 8:  Neutrality Check → ethical guardrail
+  Phase 9:  Visuals → DALL-E + Pillow infographics
+  Phase 10: PDF → luxury landscape slide deck
+  Phase 11: Screen Audit → golden ratio page fill
+  Phase 12: Final Validation → 37 master checkpoints
+  Phase 13: LinkedIn → post with dynamic document title
+
+Every phase TRACED with full input/output provenance.
 
 Usage:
-    python -m aibrief.main              # Full pipeline: research → PDF → post
-    python -m aibrief.main --no-post    # Generate PDF only, don't post
+    python -m aibrief.main                # Full autonomous run
+    python -m aibrief.main --no-post      # Generate PDF only, skip LinkedIn
+    python -m aibrief.main --dry-run      # World Pulse + Content Strategy only
 """
 import sys
-import time
 import json
+import time
 from pathlib import Path
 
 # Fix Windows console encoding
@@ -18,78 +33,69 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
-from aibrief import config
-from aibrief.agents.orchestrator import Orchestrator
-from aibrief.pipeline.pdf_gen import generate_pdf
-from aibrief.pipeline.linkedin import post_brief
-
 
 def print_banner():
     print("""
-    ╔═══════════════════════════════════════════════╗
-    ║          A I   B R I E F   v 1 . 0            ║
-    ║   AI Thought Leadership • PDF + LinkedIn      ║
-    ║                                               ║
-    ║   Multi-Agent Discussion → High-End PDF       ║
-    ║   Gemini Flash + GPT-4o • Unicode LinkedIn    ║
-    ╚═══════════════════════════════════════════════╝
+    ╔═════════════════════════════════════════════════════════╗
+    ║              A I   B R I E F   v 2 . 0                  ║
+    ║   Autonomous AI Thought Leadership Publisher            ║
+    ║                                                         ║
+    ║   World Pulse → Content Strategy → Design DNA           ║
+    ║   → Multi-Agent Debate → Luxury PDF → LinkedIn          ║
+    ║                                                         ║
+    ║   13 Phases • 20+ Agents • Full Run Tracer             ║
+    ║   Gemini Flash + GPT-4o + DALL-E 3 + Pillow            ║
+    ╚═════════════════════════════════════════════════════════╝
     """)
 
 
-def run(no_post: bool = False):
-    """Run the full pipeline."""
-    t0 = time.time()
+def run(no_post: bool = False, dry_run: bool = False):
+    """Run the full autonomous pipeline."""
+    from aibrief import config
 
-    # ── Phase 1-8: Multi-agent research + discussion ──
-    orchestrator = Orchestrator()
-    result = orchestrator.run()
+    # Override LinkedIn posting if --no-post
+    if no_post:
+        # Temporarily patch the config
+        cfg_path = config.BASE_DIR / "agent_config.json"
+        if cfg_path.exists():
+            cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+            cfg["controls"]["post_to_linkedin"] = False
+            cfg_path.write_text(
+                json.dumps(cfg, indent=2, ensure_ascii=False), encoding="utf-8")
+            print("  [Config] LinkedIn posting DISABLED (--no-post)")
 
-    story = result["story"]
-    brief = result["brief"]
-    design = result["design"]
-    li_post = result["linkedin_post"]
+    from aibrief.agents.orchestrator import AutonomousOrchestrator
 
-    # ── Phase 9: Generate PDF ──
-    print("\n" + "=" * 60)
-    print("  PHASE 9: GENERATE PDF")
-    print("=" * 60)
+    orchestrator = AutonomousOrchestrator()
 
-    pdf_path = generate_pdf(brief, design, story)
-    if not pdf_path:
-        print("  ERROR: PDF generation failed!")
+    if dry_run:
+        # Only run Phase 0 and Phase 1 for testing
+        print("\n  [DRY RUN] — Only running World Pulse + Content Strategy\n")
+        pulse = orchestrator._phase_world_pulse()
+        strategy = orchestrator._phase_content_strategy(pulse)
+        orchestrator.tracer.save({"dry_run": True, "pulse": pulse, "strategy": strategy})
+        print(f"\n  Pulse: {pulse.get('mood')} (score: {pulse.get('sentiment_score')})")
+        print(f"  Strategy: {strategy.get('content_type')}, {strategy.get('page_count')} pages")
         return
 
-    # ── Phase 10: Post to LinkedIn ──
-    if no_post:
-        print("\n  [--no-post] Skipping LinkedIn. PDF is ready.")
-    else:
-        print("\n" + "=" * 60)
-        print("  PHASE 10: POST TO LINKEDIN")
-        print("=" * 60)
+    result = orchestrator.run()
 
-        post_text = li_post.get("post_text", "")
-        if not post_text:
-            print("  ERROR: No LinkedIn post text!")
-        else:
-            li_result = post_brief(pdf_path, post_text)
-            print(f"  Result: {li_result.get('status', '?')}")
-            if li_result.get("url"):
-                print(f"  URL: {li_result['url']}")
+    if result.get("decision") == "SILENT":
+        print("\n  Today's decision: SILENT — world sentiment too extreme.")
+        return
 
-    elapsed = time.time() - t0
-    print(f"\n{'=' * 60}")
-    print(f"  PIPELINE COMPLETE | {elapsed:.0f}s ({elapsed/60:.1f} min)")
-    print(f"  Story: {story.get('headline', '?')}")
-    print(f"  PDF: {pdf_path}")
-    print(f"  Design: {design.get('design_name', '?')}")
-    print(f"  Pages: {len(brief.get('pages', []))}")
-    print(f"{'=' * 60}")
+    print(f"\n  {'─' * 50}")
+    print(f"  ✓ PDF: {result.get('pdf_path', 'N/A')}")
+    print(f"  ✓ LinkedIn: {result.get('linkedin_post', {}).get('status', 'N/A')}")
+    print(f"  ✓ Trace: {result.get('trace_path', 'N/A')}")
+    print(f"  {'─' * 50}")
 
 
 def main():
     print_banner()
     no_post = "--no-post" in sys.argv
-    run(no_post=no_post)
+    dry_run = "--dry-run" in sys.argv
+    run(no_post=no_post, dry_run=dry_run)
 
 
 if __name__ == "__main__":

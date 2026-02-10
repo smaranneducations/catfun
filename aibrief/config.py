@@ -28,6 +28,15 @@ MODEL_SOCIOLOGIST = "gemini-2.0-flash"
 MODEL_FUTURIST = "gemini-2.0-flash"
 MODEL_DESIGN_DIRECTOR = "gemini-2.0-flash"
 
+# Phase 0: World Pulse (cheap real-time scan)
+MODEL_WORLD_PULSE = "gemini-2.0-flash"
+
+# Phase 1: Content Strategy (needs higher reasoning — strategic decision)
+MODEL_CONTENT_STRATEGIST = "gpt-4o"
+
+# Phase 2: Design DNA (needs creative reasoning — visual identity)
+MODEL_DESIGN_DNA = "gpt-4o"
+
 # --- Paths ---
 BASE_DIR = Path(__file__).resolve().parent
 OUTPUT_DIR = BASE_DIR / "output"
