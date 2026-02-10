@@ -1,0 +1,44 @@
+{
+  "channel_name": "FinanceCats",
+  "brand_voice": "Clear British accent, educational but not boring, uses historical storytelling",
+  "episodes": [
+    {
+      "term": "Currency Peg",
+      "category": "Geopolitics & Trade",
+      "news_source": "",
+      "news_clip_url": "",
+      "historical_events_covered": [
+        "The Thai Baht Crisis",
+        "The Argentine Peso Collapse",
+        "The Swiss Franc Shock"
+      ],
+      "cat_id": "cat_03_white_persian.png",
+      "title": "What is Currency Peg? (The Stability Factor)",
+      "tags": [
+        "Currency Peg",
+        "Currency Peg Explained",
+        "Currency Peg Meaning",
+        "Pegged Currency",
+        "Foreign Exchange",
+        "Exchange Rate",
+        "Monetary Policy",
+        "Global Finance",
+        "Economics",
+        "Financial Stability",
+        "Currency Stability",
+        "Economic Policy",
+        "International Trade",
+        "Market Economics",
+        "Financial Education",
+        "Finance Explained",
+        "Stock Market",
+        "Currency Markets",
+        "Central Banking"
+      ],
+      "description": "Ever wondered how countries stabilize their currencies? In this video, we dive deep into the concept of 'Currency Peg' and explore its significance in global finance. Learn how currency pegs work, their advantages, and the potential risks involved.\n\n00:00 - News Clip\n00:15 - Introduction to Currency Peg\n00:45 - Context of Currency Peg in Current Events\n01:05 - In-Depth Lecture on Currency Peg\n03:25 - Final News Clip\n03:45 - Wrap-Up and Key Takeaways\n\nFinanceCats is your go-to channel for finance education, breaking down complex topics into easy-to-understand lessons. Subscribe for more insights and tips!\n\nLinks:\n- [Link to relevant articles or research]\n- [Link to related videos on the channel]\n\n#CurrencyPeg #FinanceEducation #GlobalEconomics",
+      "output_file": "C:\\Users\\conta\\OneDrive\\Projects\\catfun\\output\\FinanceCats_Currency_Peg.mp4",
+      "date": "2026-02-10",
+      "episode_number": 1
+    }
+  ]
+}

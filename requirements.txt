@@ -1,0 +1,8 @@
+openai
+yt-dlp
+youtube-transcript-api
+Pillow
+python-dotenv
+requests
+mutagen
+google-api-python-client
