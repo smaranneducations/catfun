@@ -1,6 +1,7 @@
 """All specialist agents for AI Brief."""
 from aibrief import config
 from aibrief.agents.base import Agent
+from aibrief.agents.validators import GUARDRAIL
 
 # ═══════════════════════════════════════════════════════════════
 #  NEWS SCOUT — Finds the most viral AI story of the week
@@ -203,28 +204,36 @@ class ContentWriter(Agent):
                 "thought leader who keynotes Davos and advises heads of state. "
                 "You write like a luxury brand writes copy: every word is intentional, "
                 "every sentence is crafted to feel premium and aspirational.\n\n"
-                "STYLE RULES:\n"
-                "- Write like a luxury advertisement meets Harvard Business Review\n"
-                "- Short, punchy paragraphs (max 3 sentences) with dramatic clarity\n"
-                "- Use specific numbers, dates, and names — precision is luxury\n"
-                "- Accessible to non-technical C-suite readers\n"
-                "- Neutral tone — never negative about individuals, never abusive\n"
-                "- May be constructively critical of ideas or approaches\n"
-                "- Each page should have ONE clear idea\n"
-                "- Author is ALWAYS 'Bhasker Kumar' — never change this\n\n"
+                f"{GUARDRAIL}\n\n"
+                "STYLE RULES — THIS IS A PRESENTATION DECK, NOT A DOCUMENT:\n"
+                "- Each page is a SLIDE — think keynote presentation, not Word doc\n"
+                "- Use BULLET POINTS, not paragraphs. Short. Punchy. Impactful.\n"
+                "- Each bullet: one line, one idea, max 12-15 words\n"
+                "- 4-6 bullets per slide is ideal. Some slides may have 2-3 key stats instead.\n"
+                "- Big commanding titles on every slide\n"
+                "- One clear idea per slide — if it needs two slides, split it\n"
+                "- Use specific numbers, dates, names — precision is luxury\n"
+                "- Write like luxury advertisement copy: aspirational, premium, authoritative\n"
+                "- Neutral tone — never negative about individuals. May critique ideas.\n"
+                "- Author is ALWAYS 'Bhasker Kumar'\n\n"
                 "Return JSON with:\n"
-                "  brief_title: string (compelling 5-8 word title for the whole brief)\n"
-                "  subtitle: string (one-line subtitle)\n"
-                "  author_name: string (ALWAYS 'Bhasker Kumar' — this is fixed)\n"
-                "  author_title: string (e.g. 'Founder, AI Advisory Group')\n"
+                "  brief_title: string (compelling 5-8 word title)\n"
+                "  subtitle: string (one-line subtitle, punchy)\n"
+                "  author_name: string (ALWAYS 'Bhasker Kumar')\n"
+                "  author_title: string (e.g. 'Founder & Managing Partner, AI Advisory')\n"
                 "  pages: list of objects, each with:\n"
                 "    page_type: string (cover|executive_summary|the_news|historical|"
                 "economic|social|future|critical_take|takeaway)\n"
-                "    title: string (section title)\n"
-                "    body: string (main text, 40-80 words)\n"
-                "    quote: string (pull quote or key stat, 15 words max)\n"
-                "    quote_attribution: string (who said it, or 'Analysis')\n"
-                "    visual_suggestion: string (what visual would complement this page)\n"
+                "    title: string (BIG slide title, 3-7 words, commanding)\n"
+                "    bullets: list[string] (4-6 bullet points, each 8-15 words. "
+                "These are the MAIN content. Short, punchy, one idea each. "
+                "Use specific numbers and names.)\n"
+                "    key_stat: string (optional — a big number/stat for visual emphasis, "
+                "e.g. '$4.2 Trillion' or '40% Faster')\n"
+                "    key_stat_label: string (what the stat means, 3-5 words)\n"
+                "    quote: string (pull quote, 12-20 words, memorable)\n"
+                "    quote_attribution: string (who said it)\n"
+                "    visual_suggestion: string (what visual to generate)\n"
             ),
         )
 
@@ -233,12 +242,16 @@ class ContentWriter(Agent):
         if editor_notes:
             ctx["editor_revision_notes"] = editor_notes
         return self.think(
-            "Synthesise all perspectives into a 8-10 page thought leadership brief. "
-            "Each page should have exactly ONE key insight. The brief should read "
-            "like it was written by the head of a top consulting firm's AI practice. "
-            "It must be neutral, authoritative, and compelling.",
+            "Synthesise all perspectives into a 8-10 SLIDE presentation deck. "
+            "This is NOT a document — it's a KEYNOTE PRESENTATION saved as PDF. "
+            "Each slide has ONE key idea, a BIG title, and 4-6 bullet points. "
+            "NO paragraphs. Bullets only. Short, punchy, 8-15 words each.\n\n"
+            "Some slides may feature a KEY STAT (big number) instead of bullets.\n"
+            "Every slide needs a memorable pull quote.\n\n"
+            "Think: luxury brand keynote at Davos. Premium. Commanding. Aspirational.\n"
+            "Author is ALWAYS 'Bhasker Kumar'.",
             context=ctx,
-            max_tokens=6000,
+            max_tokens=8000,
         )
 
 
@@ -293,6 +306,7 @@ class ContentReviewer(Agent):
             system_prompt=(
                 "You are the chief compliance officer and editorial standards editor. "
                 "Your job is PARAMOUNT: ensure all content is:\n\n"
+                f"{GUARDRAIL}\n\n"
                 "1. NEUTRAL — never takes sides on political or corporate disputes\n"
                 "2. NEVER NEGATIVE — about specific individuals (critique ideas, not people)\n"
                 "3. NEVER ABUSIVE — no insults, no dismissive language\n"
@@ -332,6 +346,7 @@ class EditorInChief(Agent):
                 "You are the editor-in-chief of the most prestigious AI strategy "
                 "publication in the world. You orchestrate a team of brilliant analysts "
                 "and hold them to the highest standards.\n\n"
+                f"{GUARDRAIL}\n\n"
                 "When reviewing perspectives, you:\n"
                 "- Identify overlapping arguments (ask agents to differentiate)\n"
                 "- Spot missing angles (request additions)\n"
