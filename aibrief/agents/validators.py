@@ -64,6 +64,7 @@ MASTER_CHECKLIST = [
     {"id": 34, "rule": "Multiple perspectives covered: history, economy, sociology, future", "category": "content", "weight": 2},
     {"id": 35, "rule": "Written as AI thought leader / head of consulting company", "category": "content", "weight": 2},
     {"id": 36, "rule": "LinkedIn expert uses proper Unicode formatting for bold/italic", "category": "linkedin", "weight": 1},
+    {"id": 37, "rule": "STRICT: Max 1 point per slide. One powerful high-value statement + one insight. No lists of 4-6 bullets. Quality over quantity.", "category": "format", "weight": 3},
 ]
 
 

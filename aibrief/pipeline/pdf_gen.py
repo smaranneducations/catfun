@@ -278,11 +278,18 @@ def _build_slide(cv, page, page_num, total_pages, design, visuals,
     """Content slide: artistic bg, big header, bullets, visual, quote."""
     ptype = page.get("page_type", "")
     title = page.get("title", "")
-    bullets = page.get("bullets", [])
-    # Fallback: if old-format body text exists, split into bullets
-    if not bullets and page.get("body"):
-        body = page.get("body", "")
-        bullets = [s.strip() for s in body.split(".") if s.strip()][:6]
+    # New format: single point + insight (not bullet lists)
+    point = page.get("point", "")
+    insight = page.get("insight", "")
+    # Fallback: if old bullet format exists, take first as point
+    if not point and page.get("bullets"):
+        bullets = page.get("bullets", [])
+        point = bullets[0] if bullets else ""
+        insight = bullets[1] if len(bullets) > 1 else ""
+    # Fallback: body text
+    if not point and page.get("body"):
+        point = page.get("body", "")[:100]
+        insight = page.get("body", "")[100:200]
     quote = page.get("quote", "")
     quote_attr = page.get("quote_attribution", "")
     key_stat = page.get("key_stat", "")
@@ -315,97 +322,114 @@ def _build_slide(cv, page, page_num, total_pages, design, visuals,
     y -= 18
 
     if layout == 0:
-        # ═══ LAYOUT A: Bullets left, Visual right ═══
+        # ═══ LAYOUT A: Point + Insight left, Visual right ═══
         split_x = W * 0.55
-        bullet_w = split_x - M - 20
+        text_w = split_x - M - 20
         vis_x = split_x + 10
         vis_w = W - M - vis_x
 
-        # Bullets
-        y_bullets = y
-        for i, bullet in enumerate(bullets[:6]):
-            bullet_text = f"\u25b8  {bullet}"
-            y_bullets = _text(cv, bullet_text, M, y_bullets,
-                              font, 15, text_col, max_w=bullet_w, leading=22)
-            y_bullets -= 6
+        y_content = y
+
+        # Key stat (big number, above point)
+        if key_stat:
+            y_content = _text(cv, key_stat, M, y_content, bold, 48, accent,
+                              max_w=text_w)
+            if key_stat_label:
+                y_content = _text(cv, key_stat_label, M, y_content - 4,
+                                  font, 13, _a(text_col, 0.55), max_w=text_w)
+            y_content -= 18
+
+        # THE POINT — large, commanding (20pt)
+        if point:
+            y_content = _text(cv, point, M, y_content, bold, 20, heading_col,
+                              max_w=text_w, leading=28)
+            y_content -= 14
+
+        # THE INSIGHT — supporting detail (14pt, slightly lighter)
+        if insight:
+            y_content = _text(cv, insight, M, y_content, font, 14,
+                              _a(text_col, 0.75), max_w=text_w, leading=21)
 
         # Visual on right
         if vis_path:
-            vis_h = min(280, y - M - 80)
+            vis_h = min(300, y - M - 60)
             if vis_h > 60:
                 _place_image(cv, vis_path, vis_x, y - vis_h, vis_w, vis_h)
 
-        # Key stat (if present) below bullets
-        if key_stat:
-            y_stat = y_bullets - 15
-            _text(cv, key_stat, M, y_stat, bold, 36, accent,
-                  max_w=bullet_w)
-            if key_stat_label:
-                _text(cv, key_stat_label, M, y_stat - 40, font, 12,
-                      _a(text_col, 0.6), max_w=bullet_w)
-
-        y = y_bullets
+        y = y_content
 
     elif layout == 1:
-        # ═══ LAYOUT B: Visual top-left, bullets right ═══
-        vis_w_b = W * 0.38
-        bullet_x = M + vis_w_b + 20
-        bullet_w = W - M - bullet_x
+        # ═══ LAYOUT B: Visual left, Point + Insight right ═══
+        vis_w_b = W * 0.40
+        text_x = M + vis_w_b + 25
+        text_w = W - M - text_x
 
         # Visual on left
         if vis_path:
-            vis_h = min(220, y - M - 60)
+            vis_h = min(280, y - M - 60)
             if vis_h > 60:
-                _place_image(cv, vis_path, M, y - vis_h, vis_w_b - 20, vis_h)
+                _place_image(cv, vis_path, M, y - vis_h, vis_w_b - 10, vis_h)
 
-        # Bullets on right
-        y_bullets = y
-        for bullet in bullets[:6]:
-            bullet_text = f"\u25b8  {bullet}"
-            y_bullets = _text(cv, bullet_text, bullet_x, y_bullets,
-                              font, 15, text_col, max_w=bullet_w, leading=22)
-            y_bullets -= 6
+        y_content = y
 
-        # Key stat on right below bullets
+        # Key stat
         if key_stat:
-            y_stat = y_bullets - 15
-            _text(cv, key_stat, bullet_x, y_stat, bold, 36, accent,
-                  max_w=bullet_w)
+            y_content = _text(cv, key_stat, text_x, y_content, bold, 48, accent,
+                              max_w=text_w)
             if key_stat_label:
-                _text(cv, key_stat_label, bullet_x, y_stat - 40, font, 12,
-                      _a(text_col, 0.6), max_w=bullet_w)
+                y_content = _text(cv, key_stat_label, text_x, y_content - 4,
+                                  font, 13, _a(text_col, 0.55), max_w=text_w)
+            y_content -= 18
 
-        y = y_bullets
+        # THE POINT
+        if point:
+            y_content = _text(cv, point, text_x, y_content, bold, 20, heading_col,
+                              max_w=text_w, leading=28)
+            y_content -= 14
+
+        # THE INSIGHT
+        if insight:
+            y_content = _text(cv, insight, text_x, y_content, font, 14,
+                              _a(text_col, 0.75), max_w=text_w, leading=21)
+
+        y = y_content
 
     else:
-        # ═══ LAYOUT C: Key stat centered + bullets below + visual side ═══
+        # ═══ LAYOUT C: Key stat top center + Point + Insight + Visual bottom ═══
+        y_content = y
+
+        # Key stat — big, centered
         if key_stat:
-            # Big stat centered
             cv.setFillColor(_a(accent, 0.08))
-            cv.roundRect(M, y - 80, CONTENT_W, 75, 8, fill=1, stroke=0)
-            _text(cv, key_stat, M + 20, y - 10, bold, 42, accent,
-                  max_w=CONTENT_W * 0.5)
+            cv.roundRect(M, y_content - 85, CONTENT_W, 80, 8, fill=1, stroke=0)
+            _text(cv, key_stat, M + 25, y_content - 10, bold, 48, accent,
+                  max_w=CONTENT_W * 0.6)
             if key_stat_label:
-                _text(cv, key_stat_label, M + 20, y - 55, font, 14,
-                      _a(text_col, 0.6))
-            y -= 95
+                _text(cv, key_stat_label, M + 25, y_content - 58, font, 14,
+                      _a(text_col, 0.55))
+            y_content -= 100
 
-        # Bullets full width
-        y_bullets = y
-        for bullet in bullets[:6]:
-            bullet_text = f"\u25b8  {bullet}"
-            y_bullets = _text(cv, bullet_text, M, y_bullets,
-                              font, 15, text_col, max_w=CONTENT_W * 0.6, leading=22)
-            y_bullets -= 6
+        # THE POINT — full width
+        if point:
+            y_content = _text(cv, point, M, y_content, bold, 20, heading_col,
+                              max_w=CONTENT_W * 0.7, leading=28)
+            y_content -= 14
 
-        # Visual on right side
+        # THE INSIGHT
+        if insight:
+            y_content = _text(cv, insight, M, y_content, font, 14,
+                              _a(text_col, 0.75), max_w=CONTENT_W * 0.65, leading=21)
+            y_content -= 15
+
+        # Visual at bottom right
         if vis_path:
-            vis_h = min(180, y - M - 40)
-            vis_x = W * 0.62
+            vis_h = min(180, y_content - M - 40)
+            vis_x_c = W * 0.55
             if vis_h > 60:
-                _place_image(cv, vis_path, vis_x, y_bullets, W - M - vis_x, vis_h)
+                _place_image(cv, vis_path, vis_x_c, y_content - vis_h,
+                             W - M - vis_x_c, vis_h)
 
-        y = y_bullets
+        y = y_content
 
     # ── Quote block (bottom area) ──
     if quote:

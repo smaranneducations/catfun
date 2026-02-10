@@ -215,6 +215,12 @@
       "rule": "LinkedIn expert must use proper Unicode formatting for bold/italic headers (LinkedIn does not support markdown)",
       "source": "v1 feedback",
       "category": "linkedin"
+    },
+    {
+      "id": 37,
+      "rule": "STRICT: No more than 1 point per slide. Each point must be very high value only. One insight per point. No lists of 4-6 bullets — ONE powerful statement + ONE insight supporting it. Quality over quantity.",
+      "source": "v5 feedback",
+      "category": "format"
     }
   ],
   "feedback_history": [
@@ -240,6 +246,12 @@
       "version": "v4",
       "date": "2026-02-10",
       "points": "Every page needs light artistic background on canvas, author/assistant 75% of header size, FinalValidatorAgent with 30+ checkpoints scoring 80%+, guardrails at 3 layers, no shortcuts",
+      "status": "addressed"
+    },
+    {
+      "version": "v5",
+      "date": "2026-02-10",
+      "points": "STRICT GUARDRAIL: No more than 1 point per slide. Only very high value points. One insight per point. No bullet lists of 4-6 items. ONE powerful statement + ONE supporting insight. Quality over quantity.",
       "status": "addressing"
     }
   ],
@@ -251,7 +263,7 @@
       "Author 'Bhasker Kumar' at >= 75% of header font size on cover",
       "Rotating luxury brand assistant name prominently displayed",
       "Agentic system credits (Claude, Gemini, ChatGPT) visible",
-      "Bullet points not paragraphs on most pages",
+      "MAX 1 POINT per slide — one powerful statement + one insight. No bullet lists.",
       "One clear idea per page",
       "Visual element on every page (DALL-E, infographic, data viz)",
       "Design completely different every version",
@@ -268,7 +280,8 @@
       "Never repeat design patterns",
       "Never fictional author names",
       "Never negative about individuals",
-      "Never bypass or shortcut instructions"
+      "Never bypass or shortcut instructions",
+      "NEVER more than 1 point per slide. No lists of 4-6 bullets. One statement + one insight only."
     ]
   },
   "iteration_count": 5,
