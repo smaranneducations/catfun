@@ -47,7 +47,7 @@ class YouTubeStrategist(Agent):
             name="YouTube Strategist",
             role="SEO and packaging",
             system_prompt=SYSTEM_PROMPT,
-            model=config.LLM_MODEL_MINI,
+            model=config.MODEL_YOUTUBE_STRATEGIST,
         )
 
     def create_package(self, term: str, script: dict,

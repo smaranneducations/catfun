@@ -1,0 +1,83 @@
+{
+  "feedback_history": [
+    {
+      "version": "v1",
+      "date": "2026-02-10",
+      "feedback": "No visuals on any page — completely empty looking",
+      "severity": "critical",
+      "status": "addressing"
+    },
+    {
+      "version": "v1",
+      "date": "2026-02-10",
+      "feedback": "Text pushed to one corner makes whole page look empty. Screen real estate should never be too crowded or too empty — always polished and balanced like a top-notch luxury fashion brand website",
+      "severity": "critical",
+      "status": "addressing"
+    },
+    {
+      "version": "v1",
+      "date": "2026-02-10",
+      "feedback": "Design algorithm must ALWAYS change, never repeat. That is the whole benefit of the agentic system",
+      "severity": "critical",
+      "status": "addressing"
+    },
+    {
+      "version": "v1",
+      "date": "2026-02-10",
+      "feedback": "Use DALL-E, Gemini, matplotlib, Pillow to generate real visuals — infographics, data visualizations, images. Use ALL tools in the toolkit to be creative, unique, different every time, but still classy and polished",
+      "severity": "critical",
+      "status": "addressing"
+    },
+    {
+      "version": "v1",
+      "date": "2026-02-10",
+      "feedback": "Author must be 'Bhasker Kumar', not fictional names. Assisted by rotating luxury-brand-style name (like Jaguar Phantom — same flavor as high-end luxury goods: perfume, wallet, leather, jewelry brands). Mention it is an agentic system made of multiple agents using Claude, Gemini, and ChatGPT",
+      "severity": "critical",
+      "status": "addressing"
+    },
+    {
+      "version": "v1",
+      "date": "2026-02-10",
+      "feedback": "Build proper orchestration of agents who TALK to each other, CRITICIZE each other, to produce a good design and messaging. Not a linear system. Consider LangGraph.",
+      "severity": "critical",
+      "status": "addressing"
+    },
+    {
+      "version": "v1",
+      "date": "2026-02-10",
+      "feedback": "The design algo should behave like a top luxury product website designer. The messaging should read like it was written by a top advertisement script designer — make news as palatable as a luxury advertisement.",
+      "severity": "critical",
+      "status": "addressing"
+    }
+  ],
+  "design_rules": {
+    "always": [
+      "Every page must have a visual element (DALL-E image, infographic, data viz, or artistic graphic)",
+      "Layout must be balanced — never too empty, never too crowded, like a luxury fashion brand website",
+      "Design algorithm must produce a DIFFERENT design every single time",
+      "Use full page real estate — text and visuals distributed across the page, not crammed in corners",
+      "Author is always 'Bhasker Kumar'",
+      "Assistant name rotates but always sounds like a luxury brand (perfume, leather goods, jewelry)",
+      "Mention agentic system (Claude, Gemini, ChatGPT) in credits",
+      "Copy should read like luxury advertisement — polished, palatable, aspirational",
+      "Quality must match top luxury product website design"
+    ],
+    "never": [
+      "Never use fictional author names — always Bhasker Kumar",
+      "Never leave a page without visuals",
+      "Never push all text to one corner leaving rest empty",
+      "Never repeat the same design pattern",
+      "Never make it look like a basic text document"
+    ],
+    "preferences": [
+      "Luxury aesthetic — think Hermes, Chanel, Louis Vuitton websites",
+      "Infographics with real data when possible",
+      "Abstract art from DALL-E for covers and section headers",
+      "Generous but purposeful whitespace",
+      "Strong visual hierarchy",
+      "Classy, polished, but never boring"
+    ]
+  },
+  "iteration_count": 2,
+  "last_updated": "2026-02-10T21:10:27Z"
+}

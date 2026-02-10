@@ -1,167 +1,249 @@
-"""Agent Orchestrator — Coordinates all 7 agents to produce a finance education video.
+"""Agent Orchestrator — Coordinates all agents for V3 pipeline.
 
-Flow:
-  1. Executive Producer decides topic + reads episode log
-  2. Research Analyst finds news clips on YouTube
-  3. Download clip + get transcript (pipeline)
-  4. Financial Historian researches the term
-  5. Script Writer creates the full 6-segment script
-  6. Fact Checker verifies all claims
-  7. Executive Producer approves (or sends back for revision)
-  8. Creative Director selects cat + designs overlays
-  9. YouTube Strategist creates SEO package
-  10. Return everything to pipeline for production
+V3 Flow (AI Anchor + Cat Conversation):
+  1. Viral News Scout finds the most viral story of the week
+  2. Scout picks the best financial term to embed in the story
+  3. Financial Historian researches the term
+  4. (Optional) Sociological + Geopolitical analysts add depth
+  5. Script Writer creates the ANCHOR script (embeds term in news)
+  6. Script Writer creates the CAT script (explains the term)
+  7. Fact Checker verifies all claims
+  8. Executive Producer approves
+  9. Creative Director selects two cats + designs overlays
+  10. YouTube Strategist creates SEO package
+  11. Return everything to pipeline for production
 """
 import json
 import os
 import time
 import config
 from agents.executive_producer import ExecutiveProducer
-from agents.research_analyst import ResearchAnalyst
+from agents.viral_news_scout import ViralNewsScout
 from agents.financial_historian import FinancialHistorian
+from agents.sociological_analyst import SociologicalAnalyst
+from agents.geopolitical_analyst import GeopoliticalAnalyst
 from agents.script_writer import ScriptWriter
 from agents.fact_checker import FactChecker
 from agents.creative_director import CreativeDirector
 from agents.youtube_strategist import YouTubeStrategist
 
+# Minimum relevance score for specialist insights
+SPECIALIST_RELEVANCE_THRESHOLD = 5
+
 
 class AgentOrchestrator:
-    """Orchestrates all 7 agents for FinanceCats video production."""
+    """Orchestrates all agents for FinanceCats V3 video production."""
 
     def __init__(self):
-        print("\n  Initialising 7-Agent System...")
+        print("\n  Initialising Agent System (V3: AI Anchor + Cat Conversation)...")
         self.producer = ExecutiveProducer()
-        self.researcher = ResearchAnalyst()
+        self.scout = ViralNewsScout()
         self.historian = FinancialHistorian()
+        self.sociologist = SociologicalAnalyst()
+        self.geopolitician = GeopoliticalAnalyst()
         self.writer = ScriptWriter()
         self.checker = FactChecker()
         self.creative = CreativeDirector()
         self.strategist = YouTubeStrategist()
         print("  All agents ready.\n")
 
-    def run_full_pipeline(self, transcript: str = None,
-                          clip_info: dict = None) -> dict:
-        """Run the complete 7-agent pipeline.
-
-        Args:
-            transcript: Formatted transcript from the news clip (if already downloaded)
-            clip_info: Info about a pre-selected clip (url, timestamps, etc.)
+    def run_full_pipeline(self) -> dict:
+        """Run the complete V3 agent pipeline.
 
         Returns:
-            dict with: topic, script, fact_check, creative, youtube_package, episode_data
+            dict with: viral_story, term, anchor_script, cat_script,
+                       cat_selection, youtube_package, episode_data, etc.
         """
         start = time.time()
-        total_cost = 0.0
 
         # ═══════════════════════════════════════════════
-        # PHASE 1: TOPIC SELECTION
+        # PHASE 1: FIND VIRAL NEWS
         # ═══════════════════════════════════════════════
         print("=" * 60)
-        print("  PHASE 1: TOPIC SELECTION")
+        print("  PHASE 1: FIND VIRAL NEWS (Last 7 Days)")
         print("=" * 60)
 
-        topic = self.producer.decide_next_topic()
-        term = topic.get("term", "Unknown Term")
-        category = topic.get("category", "general")
-        search_queries = topic.get("search_queries", [f"{term} news", f"{term} explained"])
+        # Get previously covered stories to avoid repeats
+        log = self.producer.load_episode_log()
+        covered_stories = [
+            ep.get("viral_story_headline", ep.get("term", ""))
+            for ep in log.get("episodes", [])
+        ]
 
-        print(f"\n  >> Topic: {term}")
-        print(f"  >> Category: {category}")
-        print(f"  >> Why now: {topic.get('why_now', 'N/A')}")
-        print(f"  >> Search queries: {search_queries}\n")
+        viral_result = self.scout.find_viral_news(excluded_stories=covered_stories)
+        stories = viral_result.get("stories", [])
+        top_pick = viral_result.get("top_pick", {})
+
+        print(f"\n  >> Found {len(stories)} viral stories:")
+        for i, s in enumerate(stories[:5]):
+            score = s.get("virality_score", "?")
+            print(f"     {i+1}. [{score}/10] {s.get('headline', '?')[:80]}")
+
+        if not stories:
+            print("  ERROR: No viral stories found!")
+            return {}
+
+        # Use the top story
+        chosen_story = stories[0]
+        print(f"\n  >> TOP PICK: {chosen_story.get('headline', 'N/A')}")
+        print(f"  >> Date: {chosen_story.get('date', 'N/A')}")
+        print(f"  >> Why viral: {chosen_story.get('virality_reason', 'N/A')[:120]}")
 
         # ═══════════════════════════════════════════════
-        # PHASE 2: FIND NEWS CLIP
+        # PHASE 2: PICK TEACHING TERM
         # ═══════════════════════════════════════════════
-        print("=" * 60)
-        print("  PHASE 2: FIND NEWS CLIP")
+        print("\n" + "=" * 60)
+        print("  PHASE 2: PICK TEACHING TERM")
         print("=" * 60)
 
-        if clip_info and clip_info.get("url"):
-            print("  Using pre-selected clip.")
-            selected_clip = clip_info
+        # Get terms already covered
+        all_terms = [ep.get("term", "") for ep in log.get("episodes", [])]
+
+        # Check for queued term from series continuity
+        queued_term = self.producer.get_queued_next_term()
+
+        if queued_term and queued_term not in all_terms:
+            print(f"\n  >> Series continuity: using queued term '{queued_term}'")
+            term = queued_term
+            term_info = {
+                "term": queued_term,
+                "category": "series_continuation",
+                "why_this_term": f"Queued from previous episode teaser",
+                "embedding_hint": "",
+                "simple_definition": "",
+                "difficulty": 3,
+            }
         else:
-            # Search YouTube
-            candidates = self.researcher.search_youtube(search_queries)
+            term_result = self.scout.pick_teaching_term(
+                story=chosen_story,
+                covered_terms=all_terms,
+            )
+            term = term_result.get("term", "Unknown")
+            term_info = term_result
 
-            if candidates:
-                # Get transcripts for top candidates (done in main pipeline)
-                # For now, return candidates for the pipeline to process
-                selected_clip = {
-                    "candidates": candidates,
-                    "search_queries": search_queries,
-                    "needs_transcript_check": True,
-                }
-            else:
-                # Ask LLM for suggestions
-                suggestions = self.researcher.suggest_clips_via_llm(term, search_queries)
-                selected_clip = {
-                    "candidates": [],
-                    "suggestions": suggestions,
-                    "needs_manual_selection": True,
-                }
-
-        print(f"  >> Clip status: {len(selected_clip.get('candidates', []))} candidates found\n")
+        print(f"\n  >> Teaching term: {term}")
+        print(f"  >> Category: {term_info.get('category', 'N/A')}")
+        print(f"  >> Why this term: {term_info.get('why_this_term', 'N/A')[:120]}")
+        print(f"  >> Embedding hint: {term_info.get('embedding_hint', 'N/A')[:120]}")
 
         # ═══════════════════════════════════════════════
         # PHASE 3: HISTORICAL RESEARCH
         # ═══════════════════════════════════════════════
-        print("=" * 60)
+        print("\n" + "=" * 60)
         print("  PHASE 3: HISTORICAL RESEARCH")
         print("=" * 60)
 
-        log = self.producer.load_episode_log()
         covered_events = []
         for ep in log.get("episodes", []):
             covered_events.extend(ep.get("historical_events_covered", []))
 
+        category = term_info.get("category", "general")
         history = self.historian.research_term(term, category, covered_events)
 
         events = history.get("historical_events", [])
         print(f"\n  >> Found {len(events)} historical events:")
         for ev in events:
             print(f"     - {ev.get('event_name', '?')} ({ev.get('date', '?')})")
-        print(f"  >> Definition: {history.get('simple_definition', 'N/A')[:100]}...\n")
+        print(f"  >> Definition: {history.get('simple_definition', 'N/A')[:100]}...")
 
         # ═══════════════════════════════════════════════
-        # PHASE 4: SCRIPT WRITING
+        # PHASE 3b: SPECIALIST ANALYSIS (optional)
         # ═══════════════════════════════════════════════
-        print("=" * 60)
-        print("  PHASE 4: SCRIPT WRITING")
+        print("\n" + "=" * 60)
+        print("  PHASE 3b: SPECIALIST ANALYSIS")
         print("=" * 60)
 
-        script = self.writer.write_script(
+        socio_analysis = self.sociologist.analyse_term(term, category, history)
+        geo_analysis = self.geopolitician.analyse_term(term, category, history)
+
+        socio_score = socio_analysis.get("relevance_score", 0)
+        geo_score = geo_analysis.get("relevance_score", 0)
+        socio_useful = (socio_analysis.get("has_strong_angle", False)
+                        and socio_score >= SPECIALIST_RELEVANCE_THRESHOLD)
+        geo_useful = (geo_analysis.get("has_strong_angle", False)
+                      and geo_score >= SPECIALIST_RELEVANCE_THRESHOLD)
+
+        print(f"\n  >> Sociological: {'INCLUDED' if socio_useful else 'SKIPPED'} "
+              f"(score {socio_score}/10)")
+        print(f"  >> Geopolitical: {'INCLUDED' if geo_useful else 'SKIPPED'} "
+              f"(score {geo_score}/10)")
+
+        enrichment = {}
+        if socio_useful:
+            enrichment["sociological_insights"] = socio_analysis.get("insights", [])
+            enrichment["sociological_summary"] = socio_analysis.get("summary", "")
+        if geo_useful:
+            enrichment["geopolitical_insights"] = geo_analysis.get("insights", [])
+            enrichment["geopolitical_summary"] = geo_analysis.get("summary", "")
+
+        # ═══════════════════════════════════════════════
+        # PHASE 4: WRITE ANCHOR SCRIPT
+        # ═══════════════════════════════════════════════
+        print("\n" + "=" * 60)
+        print("  PHASE 4: WRITE ANCHOR SCRIPT")
+        print("=" * 60)
+
+        story_date = chosen_story.get("date", "")
+        anchor_script = self.writer.write_anchor_script(
+            viral_story=chosen_story,
             term=term,
-            news_clip_info=selected_clip,
-            historical_research=history,
-            transcript=transcript or "",
+            term_info=term_info,
+            story_date=story_date,
         )
 
-        segments = script.get("segments", [])
-        total_dur = script.get("estimated_total_duration", 0)
-        print(f"\n  >> Script: {len(segments)} segments, ~{total_dur}s total")
-        for seg in segments:
-            print(f"     [{seg.get('type', '?')}] {seg.get('duration_seconds', '?')}s")
-        print()
+        anchor_text = anchor_script.get("anchor_script_text", "")
+        anchor_dur = anchor_script.get("estimated_duration_seconds", 0)
+        anchor_words = anchor_script.get("estimated_word_count", 0)
+        print(f"\n  >> Anchor script: ~{anchor_dur}s, ~{anchor_words} words")
+        print(f"  >> Opening: {anchor_script.get('opening_line', 'N/A')[:100]}")
+        print(f"  >> Closing hook: {anchor_script.get('closing_hook', 'N/A')[:100]}")
+        print(f"  >> Term mentions: {len(anchor_script.get('term_mentions', []))}")
 
         # ═══════════════════════════════════════════════
-        # PHASE 5: FACT CHECK
+        # PHASE 5: WRITE CAT SCRIPT
         # ═══════════════════════════════════════════════
-        print("=" * 60)
-        print("  PHASE 5: FACT CHECK")
+        print("\n" + "=" * 60)
+        print("  PHASE 5: WRITE CAT CONVERSATION SCRIPT")
         print("=" * 60)
 
-        fact_check = self.checker.check_script(script, history)
+        cat_script = self.writer.write_cat_script(
+            term=term,
+            anchor_script=anchor_script,
+            viral_story=chosen_story,
+            historical_research=history,
+            enrichment=enrichment or None,
+        )
+
+        exchanges = cat_script.get("exchanges", [])
+        cat_dur = cat_script.get("estimated_total_duration", 0)
+        print(f"\n  >> Cat script: {len(exchanges)} exchanges, ~{cat_dur}s total")
+        for ex in exchanges:
+            title = ex.get("exchange_title", "?")
+            dur = ex.get("duration_seconds", "?")
+            num_turns = len(ex.get("dialogue", []))
+            print(f"     [{title}] ~{dur}s, {num_turns} turns")
+
+        # ═══════════════════════════════════════════════
+        # PHASE 6: FACT CHECK
+        # ═══════════════════════════════════════════════
+        print("\n" + "=" * 60)
+        print("  PHASE 6: FACT CHECK")
+        print("=" * 60)
+
+        # Check both scripts
+        combined_for_check = {
+            "anchor_script": anchor_script,
+            "cat_script": cat_script,
+        }
+        fact_check = self.checker.check_script(combined_for_check, history)
 
         rating = fact_check.get("overall_rating", "UNKNOWN")
         issues = fact_check.get("issues_found", 0)
         print(f"\n  >> Rating: {rating}")
-        print(f"  >> Claims checked: {fact_check.get('total_claims_checked', 0)}")
         print(f"  >> Issues: {issues}")
 
-        # If issues, revise script
         if rating == "NEEDS_REVISION" and issues > 0:
-            print("  >> Sending script back for revision...\n")
+            print("  >> Sending cat script for revision...")
             corrections = [
                 c for c in fact_check.get("checks", [])
                 if c.get("rating") in ("NEEDS_CORRECTION", "MISLEADING")
@@ -170,88 +252,108 @@ class AgentOrchestrator:
                 f"- {c.get('claim', '')}: {c.get('note', '')}"
                 for c in corrections
             )
-            script = self.writer.revise_script(script, feedback)
-            print("  >> Script revised.\n")
+            cat_script = self.writer.revise_script(cat_script, feedback)
+            print("  >> Cat script revised.")
 
         # ═══════════════════════════════════════════════
-        # PHASE 6: EXECUTIVE APPROVAL
+        # PHASE 7: EXECUTIVE APPROVAL
         # ═══════════════════════════════════════════════
-        print("=" * 60)
-        print("  PHASE 6: EXECUTIVE APPROVAL")
+        print("\n" + "=" * 60)
+        print("  PHASE 7: EXECUTIVE APPROVAL")
         print("=" * 60)
 
-        approval = self.producer.approve_script(script, fact_check)
+        approval = self.producer.approve_script(
+            {"anchor_script": anchor_script, "cat_script": cat_script},
+            fact_check,
+        )
         approved = approval.get("approved", True)
         print(f"\n  >> Approved: {approved}")
-        print(f"  >> Feedback: {approval.get('feedback', 'N/A')[:200]}")
-
         if not approved:
-            # One more revision attempt
             changes = approval.get("suggested_changes", [])
             if changes:
                 feedback = "Executive Producer feedback:\n" + "\n".join(
                     f"- {c}" for c in changes
                 )
-                script = self.writer.revise_script(script, feedback)
-                print("  >> Script revised per Executive Producer.\n")
+                cat_script = self.writer.revise_script(cat_script, feedback)
+                print("  >> Cat script revised per Executive Producer.")
 
         # ═══════════════════════════════════════════════
-        # PHASE 7: CREATIVE + YOUTUBE PACKAGE
+        # PHASE 8: CREATIVE + YOUTUBE PACKAGE
         # ═══════════════════════════════════════════════
-        print("=" * 60)
-        print("  PHASE 7: CREATIVE + YOUTUBE PACKAGE")
+        print("\n" + "=" * 60)
+        print("  PHASE 8: CREATIVE + YOUTUBE PACKAGE")
         print("=" * 60)
 
-        # Select cat
-        recent_cats = [
-            ep.get("cat_id") for ep in log.get("episodes", [])[-5:]
-        ]
-        cat_selection = self.creative.select_cat(recent_cats)
-        print(f"\n  >> Cat: {cat_selection.get('cat_id', 'N/A')}")
+        # Select TWO cats
+        recent_cats = []
+        published_eps = self.producer._get_published_episodes(log)
+        for ep in published_eps[-5:]:
+            recent_cats.append(ep.get("cat_a_id", ""))
+            recent_cats.append(ep.get("cat_b_id", ""))
+        recent_cats = [c for c in recent_cats if c]
+
+        cat_selection = self.creative.select_cats(recent_cats)
+        cat_a = cat_selection.get("cat_a", {})
+        cat_b = cat_selection.get("cat_b", {})
+        print(f"\n  >> Cat A (Professor): {cat_a.get('cat_id', 'N/A')}")
+        print(f"  >> Cat B (Cleo): {cat_b.get('cat_id', 'N/A')}")
 
         # Design overlays
-        overlay_design = self.creative.design_overlays(term, script)
+        overlay_design = self.creative.design_overlays(term, cat_script)
 
         # YouTube package
         yt_package = self.strategist.create_package(
-            term, script, log.get("episodes", [])
+            term, cat_script, log.get("episodes", [])
         )
 
         titles = yt_package.get("titles", {})
         print(f"  >> Title: {titles.get('primary', 'N/A')}")
         print(f"  >> Tags: {len(yt_package.get('tags', []))} tags")
-        print(f"  >> Thumbnail: {yt_package.get('thumbnail_text', 'N/A')}\n")
+
+        # ═══════════════════════════════════════════════
+        # EXTRACT TEASER TERM FOR SERIES CHAINING
+        # ═══════════════════════════════════════════════
+        teaser_term = cat_script.get("teaser_term", "")
+        if teaser_term:
+            print(f"  >> Next episode teaser: '{teaser_term}'")
 
         # ═══════════════════════════════════════════════
         # COMPILE RESULTS
         # ═══════════════════════════════════════════════
         elapsed = time.time() - start
-        print("=" * 60)
+        print("\n" + "=" * 60)
         print(f"  ALL AGENTS COMPLETE | {elapsed:.1f}s")
         print("=" * 60)
 
-        # Prepare episode data for logging (will be saved after video is rendered)
+        # Series tracking
+        series = self.producer._get_current_series(log)
+
         episode_data = {
             "term": term,
             "category": category,
-            "news_source": selected_clip.get("channel", ""),
-            "news_clip_url": selected_clip.get("url", ""),
+            "viral_story_headline": chosen_story.get("headline", ""),
+            "viral_story_date": story_date,
+            "viral_story_summary": chosen_story.get("summary", "")[:500],
             "historical_events_covered": [
                 ev.get("event_name", "") for ev in events
             ],
-            "cat_id": cat_selection.get("cat_id", ""),
+            "cat_a_id": cat_a.get("cat_id", ""),
+            "cat_b_id": cat_b.get("cat_id", ""),
             "title": titles.get("primary", ""),
             "tags": yt_package.get("tags", []),
             "description": yt_package.get("description", ""),
+            "next_episode_term": teaser_term,
+            "video_type": "v3_anchor_cats",
         }
 
         return {
-            "topic": topic,
+            "viral_story": chosen_story,
             "term": term,
+            "term_info": term_info,
             "category": category,
-            "selected_clip": selected_clip,
             "historical_research": history,
-            "script": script,
+            "anchor_script": anchor_script,
+            "cat_script": cat_script,
             "fact_check": fact_check,
             "approval": approval,
             "cat_selection": cat_selection,

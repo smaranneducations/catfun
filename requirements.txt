@@ -1,4 +1,5 @@
 openai
+google-genai
 yt-dlp
 youtube-transcript-api
 Pillow
@@ -6,3 +7,6 @@ python-dotenv
 requests
 mutagen
 google-api-python-client
+google-auth-oauthlib
+rembg
+onnxruntime

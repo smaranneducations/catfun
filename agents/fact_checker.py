@@ -42,7 +42,7 @@ class FactChecker(Agent):
             name="Fact Checker",
             role="Accuracy verification",
             system_prompt=SYSTEM_PROMPT,
-            model=config.LLM_MODEL_MINI,  # Cost-effective for verification
+            model=config.MODEL_FACT_CHECKER,
         )
 
     def check_script(self, script: dict, historical_research: dict) -> dict:
