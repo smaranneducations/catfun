@@ -154,21 +154,34 @@ def _create_text_post(text: str, document_urn: str = "") -> dict:
         return {"status": "failed", "error": resp.text[:500]}
 
 
-def post_brief(pdf_path: str, post_text: str) -> dict:
+def post_brief(pdf_path: str, post_text: str, story: dict = None) -> dict:
     """Upload PDF to LinkedIn and create a document post.
 
     Falls back to text-only post if PDF upload fails.
+    After successful post, stores embedding for semantic dedup.
     """
     print("\n  [LinkedIn] Starting post...")
 
     # Try document post first
     doc_urn = _upload_pdf(pdf_path)
 
+    result = None
     if doc_urn:
         result = _create_text_post(post_text, document_urn=doc_urn)
-        if result.get("status") == "success":
-            return result
+        if result.get("status") != "success":
+            result = None
 
-    # Fallback: text-only post
-    print("  [LinkedIn] Falling back to text-only post...")
-    return _create_text_post(post_text)
+    if not result:
+        # Fallback: text-only post
+        print("  [LinkedIn] Falling back to text-only post...")
+        result = _create_text_post(post_text)
+
+    # Store embedding for future semantic dedup
+    if result.get("status") == "success" and story:
+        try:
+            from aibrief.pipeline.dedup import store_embedding
+            store_embedding(story, post_id=result.get("post_id", ""))
+        except Exception as e:
+            print(f"  [LinkedIn] Embedding storage error (non-fatal): {e}")
+
+    return result

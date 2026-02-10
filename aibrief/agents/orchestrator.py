@@ -272,15 +272,62 @@ class Orchestrator:
         t0 = time.time()
 
         # ──────────────────────────────────────────────────────
-        #  PHASE 1: FIND THE STORY
+        #  PHASE 1: FIND THE STORY + SEMANTIC DEDUP CHECK
+        #  This runs FIRST — before any analysis. If the story
+        #  is too similar to a previous post (>=70%), we skip it
+        #  and ask NewsScout for a different one. Up to 3 tries.
         # ──────────────────────────────────────────────────────
         print("\n" + "=" * 60)
-        print("  PHASE 1: FIND TOP AI STORY")
+        print("  PHASE 1: FIND TOP AI STORY (with semantic dedup)")
         print("=" * 60)
-        story = self.scout.find_top_story()
-        if isinstance(story, list):
-            story = story[0] if story else {}
-        print(f"  ▸ {story.get('headline', '?')}")
+
+        from aibrief.pipeline.dedup import is_duplicate, backfill_embeddings
+
+        # Ensure existing posts have embeddings
+        backfill_embeddings()
+
+        MAX_TOPIC_ATTEMPTS = 3
+        story = None
+        excluded_headlines = []
+
+        for attempt in range(1, MAX_TOPIC_ATTEMPTS + 1):
+            print(f"\n  Attempt {attempt}/{MAX_TOPIC_ATTEMPTS}...")
+
+            if attempt == 1:
+                candidate = self.scout.find_top_story()
+            else:
+                # Ask for a DIFFERENT story, excluding previous attempts
+                excluded = ", ".join(f'"{h}"' for h in excluded_headlines)
+                candidate = self.scout.think(
+                    f"Find a DIFFERENT top AI story. Do NOT pick any of these "
+                    f"topics (already covered): {excluded}. "
+                    f"Find something completely new and different.",
+                    context={"excluded_topics": excluded_headlines},
+                )
+
+            if isinstance(candidate, list):
+                candidate = candidate[0] if candidate else {}
+
+            headline = candidate.get("headline", "?")
+            print(f"  ▸ Candidate: {headline}")
+
+            # Semantic dedup check
+            is_dup, similarity, matched = is_duplicate(candidate)
+
+            if is_dup:
+                print(f"  ✗ BLOCKED: {similarity:.0%} similar to '{matched}'")
+                excluded_headlines.append(headline)
+                continue
+            else:
+                print(f"  ✓ UNIQUE: max similarity {similarity:.0%} (threshold 70%)")
+                story = candidate
+                break
+
+        if story is None:
+            print("  ⚠ All attempts matched existing topics. Using last candidate.")
+            story = candidate
+
+        print(f"\n  ▸ Final story: {story.get('headline', '?')}")
 
         # ──────────────────────────────────────────────────────
         #  PHASE 2: ANALYST PAIRS — Preparer + Reviewer argue
