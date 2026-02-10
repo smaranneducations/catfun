@@ -66,9 +66,21 @@ class ContentStrategistAgent(Agent):
                 "- Data-Driven Analysis: 6-10 pages (charts and evidence)\n"
                 "- Motivational: 3-5 pages (short, punchy, inspiring)\n"
                 "- Human Psychology: 5-7 pages\n\n"
+                "OUTPUT FORMAT DECISION:\n"
+                "You must also choose the output format:\n"
+                "- 'slides': Landscape presentation deck (6-10 pages). Best for: "
+                "analytical, multi-perspective, data-heavy, trend roundups, "
+                "deep explainers, historical retrospectives.\n"
+                "- 'poster': Portrait bold poster/banner (3-5 pages). Best for: "
+                "motivational, bold predictions, contrarian takes, leadership essays, "
+                "short punchy impact statements. Think Nike ad, Apple keynote, Vogue cover.\n\n"
+                "GUIDELINE: If the content needs DEPTH and EVIDENCE → slides. "
+                "If the content needs IMPACT and EMOTION → poster.\n\n"
                 "Return JSON:\n"
                 "{\n"
                 '  "content_type": "exact type name from the list",\n'
+                '  "output_format": "slides or poster",\n'
+                '  "format_reasoning": "why this format fits the content type and mood",\n'
                 '  "page_count": number (2-10),\n'
                 '  "tone": "descriptive tone for this piece",\n'
                 '  "topic_direction": "what kind of topic to look for",\n'

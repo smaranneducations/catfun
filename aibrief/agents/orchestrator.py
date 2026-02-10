@@ -289,12 +289,12 @@ class AutonomousOrchestrator:
         return pulse
 
     # ═══════════════════════════════════════════════════════════
-    #  PHASE 1: CONTENT STRATEGY
+    #  PHASE 1: CONTENT STRATEGY + FORMAT DECISION
     # ═══════════════════════════════════════════════════════════
 
     def _phase_content_strategy(self, pulse: dict) -> dict:
         print("\n" + "=" * 65)
-        print("  PHASE 1: CONTENT STRATEGY (Marcus)")
+        print("  PHASE 1: CONTENT STRATEGY + FORMAT (Marcus)")
         print("=" * 65)
 
         cfg_agent = self.cfg.get("agents", {}).get("ContentStrategist", {})
@@ -320,6 +320,21 @@ class AutonomousOrchestrator:
         # Get recent content types from post log to ensure variety
         recent = self._get_recent_content_types()
         strategy = self.content_strategist.strategize(pulse, recent)
+
+        # FORMAT DECISION: config override > agent choice > default
+        force_fmt = self.controls.get("force_format")
+        if force_fmt and force_fmt in ("slides", "poster"):
+            strategy["output_format"] = force_fmt
+            strategy["format_reasoning"] = f"Override from config: force_format={force_fmt}"
+            print(f"  [Format] OVERRIDE from config → {force_fmt}")
+        else:
+            fmt = strategy.get("output_format", "slides")
+            if fmt not in ("slides", "poster"):
+                fmt = "slides"
+            strategy["output_format"] = fmt
+            print(f"  [Format] Agent chose → {fmt} "
+                  f"({strategy.get('format_reasoning', 'default')})")
+
         self.tracer.end_phase(strategy)
         return strategy
 
@@ -611,8 +626,11 @@ class AutonomousOrchestrator:
 
     def _phase_synthesis(self, story: dict, perspectives: dict,
                          strategy: dict, design: dict) -> dict:
+        fmt = strategy.get("output_format", "slides")
+        fmt_label = "POSTER" if fmt == "poster" else "SLIDES"
+
         print("\n" + "=" * 65)
-        print("  PHASE 7: CONTENT SYNTHESIS (Quill + Sterling argue)")
+        print(f"  PHASE 7: CONTENT SYNTHESIS [{fmt_label}] (Quill + Sterling argue)")
         print("=" * 65)
 
         page_count = strategy.get("page_count", 8)
@@ -624,7 +642,8 @@ class AutonomousOrchestrator:
             agent_codename="Quill",
             model=config.MODEL_CONTENT_WRITER,
             fixed_inputs={
-                "core_instruction": "Synthesize into luxury keynote slides",
+                "core_instruction": f"Synthesize into luxury {fmt_label}",
+                "output_format": fmt,
                 "guardrail": GUARDRAIL[:100],
                 "anchor_filter": self.cfg.get("brand_identity", {}).get(
                     "fixed", {}).get("anchor_filter", "")[:100],
@@ -645,7 +664,14 @@ class AutonomousOrchestrator:
             },
         )
 
-        brief = self.writer.synthesise(story, perspectives)
+        # Route to poster or slide synthesis
+        if fmt == "poster":
+            poster_pages = min(page_count, 5)  # posters max 5 pages
+            brief = self.writer.synthesise_poster(
+                story, perspectives, page_count=poster_pages)
+        else:
+            brief = self.writer.synthesise(story, perspectives)
+
         self.tracer.end_phase(brief)
 
         # Copy review debate
@@ -653,7 +679,8 @@ class AutonomousOrchestrator:
                             "content_brief", story)
 
         pages = brief.get("pages", [])
-        print(f"  ▸ Brief: {brief.get('brief_title', '?')}, {len(pages)} pages")
+        print(f"  ▸ Brief [{fmt_label}]: {brief.get('brief_title', '?')}, "
+              f"{len(pages)} pages")
         return brief
 
     # ═══════════════════════════════════════════════════════════
@@ -733,20 +760,27 @@ class AutonomousOrchestrator:
     # ═══════════════════════════════════════════════════════════
 
     def _phase_pdf(self, brief: dict, design: dict, story: dict,
-                   visuals: dict) -> str:
+                   visuals: dict, fmt: str = "slides") -> str:
+        fmt_label = "POSTER" if fmt == "poster" else "SLIDE DECK"
         print("\n" + "=" * 65)
-        print("  PHASE 10: LUXURY SLIDE DECK PDF")
+        print(f"  PHASE 10: LUXURY {fmt_label} PDF")
         print("=" * 65)
 
         import re
-        from aibrief.pipeline.pdf_gen import generate_pdf
-
         slug = brief.get("brief_title", "AI_Brief")[:35]
         slug = re.sub(r'[<>:"/\\|?*]', '', slug).replace(" ", "_").strip("_")
-        output_path = str(config.OUTPUT_DIR / f"{slug}_{self.tracer.run_id}.pdf")
+        suffix = "poster" if fmt == "poster" else "slides"
+        output_path = str(
+            config.OUTPUT_DIR / f"{slug}_{suffix}_{self.tracer.run_id}.pdf")
 
-        pdf_path = generate_pdf(brief, design, story, visuals=visuals,
-                                output_path=output_path)
+        if fmt == "poster":
+            from aibrief.pipeline.poster_gen import generate_poster
+            pdf_path = generate_poster(brief, design, story, visuals=visuals,
+                                       output_path=output_path)
+        else:
+            from aibrief.pipeline.pdf_gen import generate_pdf
+            pdf_path = generate_pdf(brief, design, story, visuals=visuals,
+                                    output_path=output_path)
         return pdf_path
 
     # ═══════════════════════════════════════════════════════════
@@ -983,8 +1017,9 @@ class AutonomousOrchestrator:
         # ── Phase 9: Visuals ──
         visuals = self._phase_visuals(brief, story, design, perspectives)
 
-        # ── Phase 10: PDF ──
-        pdf_path = self._phase_pdf(brief, design, story, visuals)
+        # ── Phase 10: PDF (route to poster or slides) ──
+        fmt = strategy.get("output_format", "slides")
+        pdf_path = self._phase_pdf(brief, design, story, visuals, fmt=fmt)
 
         # ── Phase 11: Screen Audit ──
         audit = self._phase_screen_audit(brief, design, visuals)
@@ -1011,6 +1046,7 @@ class AutonomousOrchestrator:
         print(f"  AUTONOMOUS RUN COMPLETE | {elapsed:.0f}s ({elapsed/60:.1f} min)")
         print(f"  Story: {story.get('headline', '?')}")
         print(f"  Content type: {strategy.get('content_type', '?')}")
+        print(f"  Format: {strategy.get('output_format', 'slides').upper()}")
         print(f"  World mood: {pulse.get('mood', '?')}")
         print(f"  Design: {design.get('design_name', '?')}")
         print(f"  PDF: {pdf_path}")

@@ -260,6 +260,51 @@ class ContentWriter(Agent):
             max_tokens=8000,
         )
 
+    def synthesise_poster(self, story: dict, perspectives: dict,
+                          page_count: int = 4, editor_notes: dict = None) -> dict:
+        """Synthesise into a poster/banner format — bold, minimal, maximum impact."""
+        ctx = {"story": story, "perspectives": perspectives}
+        if editor_notes:
+            ctx["editor_revision_notes"] = editor_notes
+        return self.think(
+            f"CREATE A {page_count}-PAGE POSTER/BANNER — NOT slides.\n\n"
+            "THIS IS A COMPLETELY DIFFERENT FORMAT. Think: Nike poster, "
+            "Apple product launch, Vogue magazine cover, Porsche ad.\n\n"
+            "POSTER RULES:\n"
+            "- Each page is ONE powerful visual statement\n"
+            "- MASSIVE words. 5-10 words per page maximum for the hero statement\n"
+            "- One supporting line (10-15 words) beneath — that's it\n"
+            "- The WORDS are the design. Every word must stop someone scrolling\n"
+            "- No paragraphs. No bullet lists. No dense text. IMPACT.\n"
+            "- One stat page with a HERO NUMBER (e.g. '$127M', '40%', '2.3B')\n"
+            "- One powerful quote\n"
+            "- Closing page with a punchy call to action\n\n"
+            "Author is ALWAYS 'Bhasker Kumar'.\n\n"
+            "Return JSON with:\n"
+            "  brief_title: string (5-8 words, punchy)\n"
+            "  subtitle: string (one line)\n"
+            "  author_name: 'Bhasker Kumar'\n"
+            "  author_title: string\n"
+            "  pages: list of objects, each with:\n"
+            "    page_type: 'hero' | 'impact' | 'stat' | 'quote' | 'closing'\n"
+            "    hero_statement: string (5-10 POWERFUL words — the main visual text)\n"
+            "    supporting_line: string (10-15 words — tiny context beneath)\n"
+            "    hero_number: string (for stat pages only, e.g. '$4.2T')\n"
+            "    hero_label: string (for stat pages, 3-5 words)\n"
+            "    context_line: string (for stat pages, one sentence)\n"
+            "    quote: string (for quote pages, 12-20 words)\n"
+            "    attribution: string (who said it)\n"
+            "    closing_statement: string (for closing page)\n"
+            "    cta: string (call to action)\n"
+            "    visual_mood: string (mood for DALL-E image generation)\n\n"
+            f"EXACTLY {page_count} pages. First page is always 'hero'. "
+            f"Last page is always 'closing'.\n"
+            "Think like a creative director at a luxury ad agency. "
+            "Every word earns its place. Less is everything.",
+            context=ctx,
+            max_tokens=4000,
+        )
+
 
 # ═══════════════════════════════════════════════════════════════
 #  DESIGN DIRECTOR — Visual design concept for the PDF
