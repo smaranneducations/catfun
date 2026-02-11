@@ -1,102 +1,119 @@
-"""DesignDNA — Creates a complete, sentiment-aware visual identity.
+"""DesignDNA — Emotion detection + hardcoded design resolution.
 
-Now FORCED to pick from the design catalog:
-  - style_id from 12 curated styles
-  - palette_id from 10 curated color palettes
-  - font_id from 10 curated fonts
+The LLM's ONLY job is to detect the dominant EMOTION of the news story.
+Everything else (style, palette, font, image keywords) comes from the
+hardcoded EMOTION_DESIGN_MAP in design_catalog.py.
 
-The LLM chooses based on content context, world sentiment, and topic.
-Every choice must be justified. This ensures:
-  1. Forced variety (can never repeat the same look)
-  2. Quality control (all options are pre-vetted)
-  3. Technical reliability (fonts are tested)
+This eliminates the LLM's tendency to always pick the same style.
+
+Flow:
+  1. Agent reads headline + summary → returns ONE emotion word
+  2. design_catalog.resolve_design(emotion) → full design config
+  3. Imagen prompt built from: hardcoded theme + dynamic topic
 """
 from aibrief.agents.base import Agent
 from aibrief import config
-from aibrief.pipeline.design_catalog import get_catalog_for_prompt
+from aibrief.pipeline.design_catalog import (
+    VALID_EMOTIONS, resolve_design, lookup_palette,
+)
 
 
 class DesignDNAAgent(Agent):
-    """Creates unified visual identity for each brief. Codename: Vesper."""
+    """Detects emotion, then resolves hardcoded design. Codename: Vesper."""
 
     def __init__(self):
-        catalog = get_catalog_for_prompt()
+        emotions_list = ", ".join(VALID_EMOTIONS)
         super().__init__(
             name="Design DNA",
-            role="Creates the complete visual identity for each brief",
+            role="Detects the dominant emotion of the news to drive visual design",
             model=config.MODEL_DESIGN_DNA,
             system_prompt=(
-                "You are Vesper, the creative director for Bhasker Kumar's "
-                "thought leadership publications. Think: Hermès at Davos meets "
-                "Bloomberg Businessweek meets Chanel editorial.\n\n"
-                "Your job: pick a COMPLETE visual identity from the catalog below. "
-                "You MUST pick from these lists — no freestyle.\n\n"
-                f"{catalog}\n\n"
-                "SELECTION RULES:\n"
-                "1. Pick style_id based on the CONTENT TYPE and TOPIC (anime for "
-                "energetic/fun, gothic for dramatic, luxury for authority, etc.)\n"
-                "2. Pick palette_id based on the WORLD SENTIMENT (dark palettes "
-                "for anxious times, warm for optimistic, cool for analytical)\n"
-                "3. Pick font_id based on the STYLE (serif for classical, "
-                "sans for modern, mono for tech). Use the recommended pairings "
-                "as guidance but you CAN mix.\n"
-                "4. NEVER repeat the same combination. Deliberately surprise.\n"
-                "5. Justify EVERY choice with design psychology.\n\n"
-                "You must also provide:\n"
-                "- image_generation_key: 10-15 word phrase appended to ALL "
-                "DALL-E prompts for visual coherence. Include the style's "
-                "dall_e_hint essence.\n"
-                "- design_name: an evocative name for this specific design\n\n"
+                "You are Vesper, an emotion analyst. Your ONLY job is to read "
+                "a news story and determine the SINGLE dominant emotion it "
+                "evokes in the reader.\n\n"
+                f"VALID EMOTIONS (pick EXACTLY ONE): {emotions_list}\n\n"
+                "RULES:\n"
+                "1. Read the headline, summary, and context\n"
+                "2. Determine: what does the READER feel when reading this?\n"
+                "3. Return ONLY the emotion word — nothing else\n"
+                "4. If unsure, pick 'trust' (safe default)\n\n"
+                "EMOTION GUIDE:\n"
+                "  trust      — corporate deals, partnerships, stability\n"
+                "  excitement — breakthroughs, launches, records, celebrations\n"
+                "  calm       — routine updates, mild progress, steady growth\n"
+                "  urgency    — breaking news, deadlines, critical events\n"
+                "  fear       — risks, warnings, market crashes, threats\n"
+                "  anger      — injustice, scandals, conflicts, outrages\n"
+                "  sadness    — tragedies, losses, memorials, grief\n"
+                "  hope       — recovery, progress, optimism, new beginnings\n"
+                "  mystery    — investigations, unknowns, surprising reveals\n"
+                "  rebellion  — disruptions, protests, counter-culture, defiance\n\n"
                 "Return JSON:\n"
                 "{\n"
-                '  "style_id": "from catalog",\n'
-                '  "palette_id": "from catalog",\n'
-                '  "font_id": "from catalog",\n'
-                '  "design_name": "evocative name for this design",\n'
-                '  "image_generation_key": "10-15 word DALL-E style directive",\n'
-                '  "mood": "descriptive mood phrase",\n'
-                '  "visual_motif": "geometric / organic / abstract / etc.",\n'
-                '  "design_justification": "why these choices for today",\n'
-                '  "primary_color": "#hex (from chosen palette)",\n'
-                '  "secondary_color": "#hex",\n'
-                '  "accent_color": "#hex",\n'
-                '  "background_color": "#hex",\n'
-                '  "text_color": "#hex",\n'
-                '  "heading_color": "#hex"\n'
+                '  "emotion": "one word from the list above",\n'
+                '  "reasoning": "one sentence why this emotion"\n'
                 "}"
             ),
         )
 
     def create_identity(self, world_pulse: dict, strategy: dict,
                         story: dict) -> dict:
-        """Generate a complete visual identity from the catalog."""
-        return self.think(
-            "Pick a COMPLETE visual identity from the catalog. "
-            "You MUST use style_id, palette_id, font_id from the lists. "
-            "Every choice must be justified by the world sentiment, "
-            "content type, and topic. The background MUST be rich — never "
-            "white or plain. Think luxury keynote at Davos.\n\n"
-            "CRITICAL: Pick something that MATCHES the content. "
-            "If the topic is dramatic → gothic or heavy metal. "
-            "If the topic is about innovation → cyberpunk or swiss. "
-            "If the topic is about leadership → luxury or haute couture. "
-            "Be bold. Surprise me.",
+        """Detect emotion → resolve full design from hardcoded map."""
+
+        # Step 1: Ask LLM to detect emotion only
+        result = self.think(
+            "Read this news story and tell me the SINGLE dominant emotion "
+            "a reader would feel. Return ONLY the emotion word from the "
+            "valid list.",
             context={
-                "world_pulse": {
-                    "mood": world_pulse.get("mood"),
-                    "sentiment_score": world_pulse.get("sentiment_score"),
-                    "recommended_tone": world_pulse.get("recommended_tone"),
-                },
-                "content_strategy": {
-                    "content_type": strategy.get("content_type"),
-                    "tone": strategy.get("tone"),
-                    "page_count": strategy.get("page_count"),
-                },
-                "topic": {
-                    "headline": story.get("headline", ""),
-                    "why_viral": story.get("why_viral", ""),
-                },
-                "format": "portrait poster (612x792 pts, 3 content pages)",
+                "headline": story.get("headline", ""),
+                "summary": story.get("summary", ""),
+                "why_viral": story.get("why_viral", ""),
+                "world_mood": world_pulse.get("mood", "normal"),
+                "content_type": strategy.get("content_type", ""),
             },
-            temperature=0.9,  # High creativity for design
+            temperature=0.3,  # Low temp for consistent classification
         )
+
+        emotion = result.get("emotion", "trust").lower().strip()
+        reasoning = result.get("reasoning", "")
+        print(f"  [Vesper] Detected emotion: {emotion}")
+        print(f"  [Vesper] Reasoning: {reasoning}")
+
+        # Step 2: Resolve full design from hardcoded map
+        design = resolve_design(emotion)
+
+        # Step 3: Build the complete design dict for downstream
+        palette = lookup_palette(design["palette_id"])
+
+        full_design = {
+            "emotion": emotion,
+            "emotion_reasoning": reasoning,
+            "style_id": design["style_id"],
+            "palette_id": design["palette_id"],
+            "font_id": design["font_id"],
+            "design_name": design["design_name"],
+            "mood": design["mood"],
+            "imagen_style": design["imagen_style"],
+            "bg_motifs": design["bg_motifs"],
+            "fg_mood": design["fg_mood"],
+            "image_generation_key": (
+                f"{design['imagen_style']}, {design['fg_mood']}"
+            ),
+            "visual_motif": design["bg_motifs"],
+            # Colors from palette
+            "primary_color": palette["primary"],
+            "secondary_color": palette["secondary"],
+            "accent_color": palette["accent"],
+            "background_color": palette["background"],
+            "text_color": palette["text"],
+            "heading_color": palette["heading"],
+        }
+
+        print(f"  \u25b8 Design: {full_design['design_name']}")
+        print(f"  \u25b8 Style: {full_design['style_id']}")
+        print(f"  \u25b8 Palette: {full_design['palette_id']}")
+        print(f"  \u25b8 Font: {full_design['font_id']}")
+        print(f"  \u25b8 Imagen style: {full_design['imagen_style']}")
+
+        return full_design

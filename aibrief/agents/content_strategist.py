@@ -1,28 +1,26 @@
 """ContentStrategist — Decides content TYPE and tone based on world pulse.
 
-Output is ALWAYS poster format with 3 content pages.
-The strategist decides:
-  - Content type (from 12+ options)
-  - Tone
-  - Topic direction
-
-Page count is FIXED at 3 content pages (plus cover, agent credits, mind map).
+Output is ALWAYS poster format:
+  Page 1: Cover
+  Page 2: News Summary (6 bullet points)
+  Pages 3-6: Content (5 points each)
+  Then: Agent credits, Run info, Decision architecture
 """
 from aibrief.agents.base import Agent
 from aibrief import config
 
 CONTENT_TYPES = [
-    "Breaking News Analysis — a major AI event just happened",
-    "Historical Retrospective — connecting past to present through AI lens",
-    "Contrarian Take — challenging conventional wisdom about AI",
-    "Trend Roundup — 3-5 trends reshaping the AI landscape",
-    "Bold Prediction — forward-looking AI forecast with conviction",
-    "Deep Explainer — one AI concept made accessible to executives",
-    "Leadership Essay — how to lead in the AI era",
-    "Calming Perspective — grounding anxieties about AI with facts",
-    "Data-Driven Analysis — numbers and evidence about AI's real impact",
-    "Motivational (AI lens) — inspiring action in an AI-transformed world",
-    "Human Psychology (AI lens) — cognitive biases in AI decision-making",
+    "Breaking News Analysis — a major event just happened, analyze it now",
+    "Historical Retrospective — connecting past to present, patterns and parallels",
+    "Contrarian Take — challenging conventional wisdom, the unpopular smart take",
+    "Trend Roundup — 3-5 trends shaping the world right now",
+    "Bold Prediction — forward-looking forecast with conviction",
+    "Deep Explainer — one complex topic made accessible to executives",
+    "Leadership Essay — what leaders should do about this development",
+    "Calming Perspective — grounding anxieties with facts and context",
+    "Data-Driven Analysis — numbers and evidence about real-world impact",
+    "Motivational — inspiring action in a rapidly changing world",
+    "Human Psychology — cognitive biases and decision-making lessons",
     "Silent — don't post today, sentiment is too extreme/sensitive",
 ]
 
@@ -37,15 +35,15 @@ class ContentStrategistAgent(Agent):
             model=config.MODEL_CONTENT_STRATEGIST,
             system_prompt=(
                 "You are Marcus, the content strategist for Bhasker Kumar — "
-                "a globally recognised AI thought leader who keynotes Davos "
+                "a globally recognised thought leader who keynotes Davos "
                 "and advises heads of state.\n\n"
                 "Your job: decide WHAT to publish today.\n\n"
-                "CRITICAL ANCHOR (non-negotiable):\n"
-                "Everything published must reinforce Bhasker Kumar as THE voice "
-                "on AI's impact on business, leadership, and human experience. "
-                "This is not a general news outlet. This is a thought leader's "
-                "personal publication. Every piece must connect to AI.\n\n"
-                "FORMAT: Always poster format. 3 content pages. Fixed.\n\n"
+                "CONTENT FOCUS:\n"
+                "We publish about the TOP TRENDING news of the day — ANY topic. "
+                "Whatever the world is talking about most right now. "
+                "This is a thought leader's personal publication that provides "
+                "unique perspectives on the most viral global stories.\n\n"
+                "FORMAT: Always poster format. 1 news summary (6 pts) + 4 content pages (5 pts each). Fixed.\n\n"
                 "CONTENT TYPE SELECTION RULES:\n"
                 "- EXTREME_SAD: 'Silent' (don't post) or 'Calming Perspective'\n"
                 "- ANXIOUS: 'Calming Perspective' or 'Data-Driven Analysis'\n"
@@ -83,12 +81,12 @@ class ContentStrategistAgent(Agent):
             context=ctx,
         )
 
-        # Fixed: always poster, always 3 content pages
+        # Fixed: always poster, always 4 content pages (2 findings each)
         result["output_format"] = "poster"
-        result["page_count"] = 3
+        result["page_count"] = 4
 
         ct = result.get("content_type", "")
         print(f"  [Marcus] Content type: {ct}")
         print(f"  [Marcus] Tone: {result.get('tone', '?')}")
-        print(f"  [Marcus] Format: poster (3 content pages)")
+        print(f"  [Marcus] Format: poster (4 content pages, 2 findings each)")
         return result

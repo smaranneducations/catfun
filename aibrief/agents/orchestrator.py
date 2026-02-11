@@ -18,9 +18,14 @@ Architecture:
   Phase 13: LinkedIn → post with dynamic catchy document title
 
 OUTPUT is ALWAYS poster format:
-  Pages 1-4: Poster (cover + 3 content)
-  Pages 5-6: Agent credits (all agents, roles, mandates)
-  Page 7:    Decision architecture mind map (pipeline flow)
+  Page 1:    Cover (landing page)
+  Page 2:    News Summary (headline, publisher, URL, 6 bullet points)
+  Pages 3-6: Content (5 points each, background + foreground Imagen images)
+  Pages 7-8: Agent credits (all agents, roles, mandates)
+  Page 9:    Run info summary (topic, style, palette, font, score)
+  Page 10:   Decision architecture (readable phases with one-liners)
+
+Uses Google Imagen instead of DALL-E for cost savings.
 
 Every phase is TRACED: fixed inputs (from config) and variable inputs
 (from other agents) are recorded with full source attribution.
@@ -92,14 +97,16 @@ class CopyReviewer(Agent):
                 "You are the creative director at a luxury brand agency (LVMH level). "
                 "You review copy with the standards of Hermès editorial campaigns. "
                 "Every word must earn its place. Every sentence must feel premium.\n\n"
-                "REVIEW CRITERIA (POSTER FORMAT):\n"
-                "1. Does each page have ONE hero statement of 5-10 words? NOT a paragraph.\n"
-                "2. Is the hero statement powerful enough to stop a CEO scrolling?\n"
-                "3. Is the supporting line max 15 words and adds real value?\n"
-                "4. Does it read like luxury advertising — not a textbook?\n"
-                "5. Would a CEO frame this on their wall?\n\n"
-                "STRICT GUARDRAIL: Any page with more than 10 words in the hero "
-                "statement MUST be rejected. This is a POSTER, not a document.\n\n"
+                "REVIEW CRITERIA (POSTER FORMAT — 5 points per page):\n"
+                "1. Does the news_summary page have EXACTLY 6 bullet points?\n"
+                "2. Does each content page have EXACTLY 5 bullet points?\n"
+                "3. Is each point statement 5-10 words? NOT a paragraph.\n"
+                "4. Is each point powerful enough to stop a CEO scrolling?\n"
+                "5. Is each detail line max 15 words and adds real value?\n"
+                "6. Does it read like luxury advertising — not a textbook?\n"
+                "7. Would a CEO frame this on their wall?\n\n"
+                "STRICT GUARDRAIL: Any point with more than 10 words in the statement "
+                "MUST be rejected. This is a POSTER, not a document.\n\n"
                 "Return JSON:\n"
                 "{\n"
                 "  \"overall_score\": number (1-10),\n"
@@ -258,10 +265,37 @@ class AutonomousOrchestrator:
             "key_outputs": {
                 "world_mood": pulse.get("mood", "normal"),
                 "content_type": strategy.get("content_type", ""),
+                "emotion": design.get("emotion", ""),
                 "design_name": design.get("design_name", ""),
+                "imagen_style": design.get("imagen_style", ""),
                 "validation_score": validation.get("total_score", 0),
             },
         }
+
+    # ═══════════════════════════════════════════════════════════
+    #  HARD NEWS VALIDATION — No URL, No Publisher = REJECT
+    # ═══════════════════════════════════════════════════════════
+
+    @staticmethod
+    def _validate_news(story: dict) -> tuple[bool, str]:
+        """Validate news story from search grounding.
+
+        URLs are already verified by NewsScout (resolved from grounding
+        metadata + HTTP checked). We just confirm the basics.
+        """
+        if not story:
+            return False, "Empty story"
+
+        if story.get("abort"):
+            return False, f"Agent aborted: {story.get('reason', 'unknown')}"
+
+        url = str(story.get("news_url", "") or "").strip()
+        if not url or not url.startswith("http"):
+            return False, f"No valid URL: '{url}'"
+
+        # URL was already verified by NewsScout._verify_url()
+        print(f"    [Validated] {url[:80]}")
+        return True, "OK"
 
     # ═══════════════════════════════════════════════════════════
     #  DEBATE ENGINE (reusable for any preparer/reviewer pair)
@@ -397,8 +431,10 @@ class AutonomousOrchestrator:
                 agent_codename=cfg_agent.get("name", "Sable"),
                 model=config.MODEL_NEWS_SCOUT,
                 fixed_inputs={
-                    "core_instruction": cfg_agent.get("fixed_strings", {}).get(
-                        "core_instruction", "Find topic"),
+                    "core_instruction": (
+                        "Google Search grounded news discovery. "
+                        "URLs come from search results, not LLM memory."
+                    ),
                 },
                 variable_inputs={
                     "content_type": self.tracer.var_ref(
@@ -412,25 +448,12 @@ class AutonomousOrchestrator:
                 },
             )
 
-            if attempt == 1:
-                candidate = self.scout.think(
-                    f"Find THE best topic for a '{content_type}' piece. "
-                    f"Topic direction: {topic_dir}. "
-                    f"Current world mood: {pulse.get('mood', 'normal')}. "
-                    f"Trending AI topics: {pulse.get('ai_news', [])}. "
-                    f"This must connect to AI thought leadership.",
-                    context={"content_type": content_type,
-                             "world_pulse": pulse},
-                )
-            else:
-                excluded_str = ", ".join(f'"{h}"' for h in excluded)
-                candidate = self.scout.think(
-                    f"Find a DIFFERENT topic. Do NOT pick: {excluded_str}. "
-                    f"Content type: '{content_type}'. "
-                    f"Find something completely new and different.",
-                    context={"excluded_topics": excluded,
-                             "content_type": content_type},
-                )
+            # Use Google Search grounded news finder
+            candidate = self.scout.find_story(
+                content_type=content_type,
+                pulse=pulse,
+                excluded=excluded if excluded else None,
+            )
 
             if isinstance(candidate, list):
                 candidate = candidate[0] if candidate else {}
@@ -439,6 +462,18 @@ class AutonomousOrchestrator:
 
             headline = candidate.get("headline", "?")
             print(f"  \u25b8 Candidate: {headline}")
+
+            # ── HARD VALIDATION: real URL + real publisher ──
+            is_valid, reject_reason = self._validate_news(candidate)
+            if not is_valid:
+                print(f"  \u2717 REJECTED (NEWS VALIDATION): {reject_reason}")
+                excluded.append(headline)
+                continue
+
+            url = candidate.get("news_url", "")
+            publisher = candidate.get("publisher", "")
+            print(f"    URL: {url}")
+            print(f"    Publisher: {publisher}")
 
             is_dup, similarity, matched = is_duplicate(candidate)
             if is_dup:
@@ -451,20 +486,29 @@ class AutonomousOrchestrator:
                 break
 
         if story is None:
-            print("  \u26a0 All attempts matched. Using last candidate.")
-            story = candidate
+            print("\n  \u26a0\u26a0\u26a0 HARD ABORT: Could not find ANY real published "
+                  "news with a valid URL and publisher after "
+                  f"{max_attempts} attempts.")
+            print("  Pipeline cannot continue without verified news.")
+            raise RuntimeError(
+                "NEWS VALIDATION FAILED: No real news article found with "
+                "a valid URL and publisher. Pipeline aborted. "
+                "The system will NOT fabricate news."
+            )
 
         print(f"\n  \u25b8 Final topic: {story.get('headline', '?')}")
+        print(f"  \u25b8 URL: {story.get('news_url', '?')}")
+        print(f"  \u25b8 Publisher: {story.get('publisher', '?')}")
         return story
 
     # ═══════════════════════════════════════════════════════════
-    #  PHASE 3: DESIGN DNA + DEBATE
+    #  PHASE 3: DESIGN DNA — EMOTION DETECTION (no debate)
     # ═══════════════════════════════════════════════════════════
 
     def _phase_design_dna(self, pulse: dict, strategy: dict,
                           story: dict) -> dict:
         print("\n" + "=" * 65)
-        print("  PHASE 3: DESIGN DNA + DEBATE (Vesper vs Onyx)")
+        print("  PHASE 3: EMOTION DETECTION \u2192 HARDCODED DESIGN (Vesper)")
         print("=" * 65)
 
         cfg_agent = self.cfg.get("agents", {}).get("DesignDNA", {})
@@ -474,10 +518,10 @@ class AutonomousOrchestrator:
             agent_codename=cfg_agent.get("name", "Vesper"),
             model=config.MODEL_DESIGN_DNA,
             fixed_inputs={
-                "core_instruction": cfg_agent.get("fixed_strings", {}).get(
-                    "core_instruction", "Create visual identity from catalog"),
-                "available_themes": cfg_agent.get("fixed_strings", {}).get(
-                    "available_themes", []),
+                "core_instruction": (
+                    "Detect dominant EMOTION only. "
+                    "Style/palette/font resolved from hardcoded emotion map."
+                ),
             },
             variable_inputs={
                 "world_pulse": self.tracer.var_ref(
@@ -494,16 +538,14 @@ class AutonomousOrchestrator:
         design = self.design_dna.create_identity(pulse, strategy, story)
         self.tracer.end_phase(design)
 
-        # Design debate
-        design = self._argue(
-            self.design_dna, self.design_reviewer, design,
-            "visual_design", {"story": story, "world_pulse": pulse})
-
+        # NO DEBATE — design is deterministic from emotion map.
+        # Reviewer cannot override hardcoded style/palette/font.
+        print(f"  \u25b8 Emotion: {design.get('emotion', '?')}")
         print(f"  \u25b8 Design: {design.get('design_name', '?')}")
         print(f"  \u25b8 Style: {design.get('style_id', '?')}")
         print(f"  \u25b8 Palette: {design.get('palette_id', '?')}")
         print(f"  \u25b8 Font: {design.get('font_id', '?')}")
-        print(f"  \u25b8 Image key: {design.get('image_generation_key', '?')[:60]}")
+        print(f"  \u25b8 Imagen: {design.get('imagen_style', '?')}")
         return design
 
     # ═══════════════════════════════════════════════════════════
@@ -757,8 +799,9 @@ class AutonomousOrchestrator:
 
         from aibrief.pipeline.visuals import generate_all_visuals
         run_id = self.tracer.run_id
+        style_id = design.get("style_id", "luxury_minimalist")
         visuals = generate_all_visuals(brief, story, design, perspectives,
-                                       run_id)
+                                       run_id, style_id=style_id)
         self.tracer.end_phase(
             {"visual_count": len(visuals),
              "types": list(visuals.keys())})
@@ -794,6 +837,7 @@ class AutonomousOrchestrator:
             visuals=visuals,
             agents_info=agents_info,
             tracer_flow=tracer_flow,
+            strategy=strategy,
             output_path=output_path,
         )
         return pdf_path
@@ -930,7 +974,9 @@ class AutonomousOrchestrator:
         )
 
         li_post = self.linkedin_expert.craft_post(story, brief)
-        self.tracer.end_phase(li_post)
+        # Save FULL post text (not truncated) for reuse
+        self.tracer.end_phase(
+            self.tracer._truncate_value_full(li_post))
 
         post_text = li_post.get("post_text", "")
         doc_title = li_post.get("document_title", "")
@@ -1006,7 +1052,7 @@ class AutonomousOrchestrator:
         # ── Phase 2: Topic Discovery ──
         story = self._phase_topic_discovery(strategy, pulse)
 
-        # ── Phase 3: Design DNA + Debate ──
+        # ── Phase 3: Emotion Detection → Hardcoded Design ──
         design = self._phase_design_dna(pulse, strategy, story)
 
         # ── Phase 4: Analyst Pairs ──
@@ -1049,10 +1095,12 @@ class AutonomousOrchestrator:
             "validation_score": validation.get("total_score"),
             "content_type": strategy.get("content_type"),
             "world_mood": pulse.get("mood"),
+            "emotion": design.get("emotion"),
             "design_name": design.get("design_name"),
             "style_id": design.get("style_id"),
             "palette_id": design.get("palette_id"),
             "font_id": design.get("font_id"),
+            "imagen_style": design.get("imagen_style"),
             "headline": story.get("headline"),
         })
 
@@ -1061,8 +1109,11 @@ class AutonomousOrchestrator:
         print(f"  Story: {story.get('headline', '?')}")
         print(f"  Content type: {strategy.get('content_type', '?')}")
         print(f"  Format: POSTER (always)")
-        print(f"  Style: {design.get('style_id', '?')}")
-        print(f"  Palette: {design.get('palette_id', '?')}")
+        print(f"  Emotion: {design.get('emotion', '?')}")
+        print(f"  Style: {design.get('style_id', '?')} (from emotion map)")
+        print(f"  Palette: {design.get('palette_id', '?')} (from emotion map)")
+        print(f"  Font: {design.get('font_id', '?')} (from emotion map)")
+        print(f"  Imagen: {design.get('imagen_style', '?')}")
         print(f"  World mood: {pulse.get('mood', '?')}")
         print(f"  Design: {design.get('design_name', '?')}")
         print(f"  PDF: {pdf_path}")

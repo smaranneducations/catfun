@@ -190,3 +190,7 @@ class RunTracer:
                         + [f"… +{len(obj) - 15} more"])
             return [self._truncate_value(x, max_str) for x in obj]
         return obj
+
+    def _truncate_value_full(self, obj, max_str=5000):
+        """Like _truncate_value but with much higher limit for key outputs."""
+        return self._truncate_value(obj, max_str=max_str)

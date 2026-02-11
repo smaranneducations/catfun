@@ -1,51 +1,262 @@
 """All specialist agents for AI Brief."""
+import json
 from aibrief import config
 from aibrief.agents.base import Agent
 from aibrief.agents.validators import GUARDRAIL
 
 # ═══════════════════════════════════════════════════════════════
-#  NEWS SCOUT — Finds the most viral AI story of the week
+#  NEWS SCOUT — Google Search grounded (real URLs, not hallucinated)
 # ═══════════════════════════════════════════════════════════════
-class NewsScout(Agent):
+
+class NewsScout:
+    """Finds trending news using Gemini + Google Search grounding.
+
+    NOT a base Agent — uses Google Search tool directly so URLs come
+    from actual Google Search results (grounding metadata), not LLM
+    hallucination.
+
+    Flow:
+      1. Gemini + Google Search finds trending articles
+      2. We extract REAL URLs from grounding_metadata.grounding_chunks
+      3. Follow redirect URLs to get the actual article URLs
+      4. HTTP-verify each URL, pick the first that returns 200
+      5. Give the verified URL + article info back to the pipeline
+    """
+
     def __init__(self):
-        super().__init__(
-            name="News Scout",
-            role="Finds the most viral AI news of the week",
-            model=config.MODEL_NEWS_SCOUT,
-            system_prompt=(
-                "You are a senior technology journalist with 20 years covering Silicon "
-                "Valley. Your job is to identify THE single most impactful AI story from "
-                "the last 7 days — something that top executives, investors, and thought "
-                "leaders are talking about.\n\n"
-                "PRIORITISE:\n"
-                "- Major product launches (new AI models, tools, platforms)\n"
-                "- Statements by industry leaders (Sam Altman, Jensen Huang, Satya "
-                "Nadella, Sundar Pichai, Dario Amodei, Demis Hassabis, etc.)\n"
-                "- Regulatory actions or policy shifts\n"
-                "- Massive funding rounds or acquisitions\n"
-                "- Breakthroughs in capabilities or benchmarks\n"
-                "- AI safety incidents or controversies\n"
-                "- Enterprise adoption milestones\n\n"
-                "Return JSON with:\n"
-                "  headline: string (concise, punchy headline)\n"
-                "  summary: string (3-4 sentence summary of what happened)\n"
-                "  date: string (approximate date, YYYY-MM-DD)\n"
-                "  source: string (who broke it or key person involved)\n"
-                "  why_viral: string (why this matters to a senior audience)\n"
-                "  key_quote: string (a real or realistic quote from a key figure)\n"
-                "  quote_attribution: string (who said it)\n"
-                "  impact_areas: list[string] (3-5 areas affected)\n"
-                "  virality_score: int (1-10)\n"
-            ),
+        from google import genai
+        self.name = "News Scout"
+        self.role = "Finds trending news via Google Search grounding"
+        self._client = genai.Client(api_key=config.GEMINI_API_KEY)
+
+    @staticmethod
+    def _resolve_grounding_url(redirect_url: str) -> str | None:
+        """Follow a Vertex AI grounding redirect to get the real URL."""
+        import requests
+        try:
+            resp = requests.head(
+                redirect_url, allow_redirects=True, timeout=10,
+                headers={"User-Agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/120.0.0.0 Safari/537.36"
+                )},
+            )
+            final = resp.url
+            from urllib.parse import urlparse
+            path = urlparse(final).path.rstrip("/")
+            # Skip homepage
+            if not path or path == "":
+                return None
+            # Skip 404 pages
+            if "404" in path.lower():
+                return None
+            # Skip category/index pages (e.g. /news/science/ or /topic/ai/)
+            # Real articles have deeper paths with slugs, dates, or IDs
+            segments = [s for s in path.split("/") if s]
+            if len(segments) <= 2 and not any(
+                c.isdigit() for c in segments[-1] if segments
+            ):
+                # Short path with no numbers = likely a category page
+                return None
+            return final
+        except Exception:
+            return None
+
+    @staticmethod
+    def _verify_url(url: str) -> bool:
+        """Check if a URL actually loads (HTTP 200)."""
+        import requests
+        try:
+            resp = requests.get(
+                url, timeout=10, allow_redirects=True, stream=True,
+                headers={"User-Agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/120.0.0.0 Safari/537.36"
+                )},
+            )
+            resp.close()
+            return resp.status_code < 400
+        except Exception:
+            return False
+
+    def find_story(self, content_type: str, pulse: dict,
+                   excluded: list = None) -> dict:
+        """Search Google for a real trending news article.
+
+        Uses grounding metadata to extract verified URLs.
+        """
+        from google.genai import types
+
+        excluded_str = ""
+        if excluded:
+            excluded_str = (
+                "\n\nDO NOT pick any of these (already covered): "
+                + ", ".join(f'"{h}"' for h in excluded)
+            )
+
+        trending = pulse.get("trending_topics", [])
+        viral = pulse.get("top_viral_news", "")
+        mood = pulse.get("mood", "normal")
+
+        prompt = (
+            f"Search Google News for the most trending, viral news story "
+            f"happening right now. Find a specific article with details.\n\n"
+            f"CATEGORY FILTER — Only pick stories from these categories:\n"
+            f"  - Economics / Finance / Markets\n"
+            f"  - Technology / AI / Software / Hardware\n"
+            f"  - Science / Research / Space / Health\n"
+            f"  - Media / Entertainment / Digital Culture\n"
+            f"Do NOT pick: politics, sports, crime, celebrity gossip, weather.\n\n"
+            f"World mood: {mood}. Trending: {', '.join(trending[:3])}.\n"
+            f"Viral today: {viral}.\n"
+            f"Content angle: {content_type}.\n"
+            f"{excluded_str}\n\n"
+            f"Return the story details as JSON:\n"
+            f'{{\n'
+            f'  "headline": "your punchy headline",\n'
+            f'  "exact_news_headline": "exact original headline",\n'
+            f'  "publisher": "publication name",\n'
+            f'  "summary": "3-4 sentence summary",\n'
+            f'  "summary_points": ["pt1","pt2","pt3","pt4","pt5","pt6"],\n'
+            f'  "date": "YYYY-MM-DD",\n'
+            f'  "source": "who broke it",\n'
+            f'  "why_viral": "why trending",\n'
+            f'  "key_quote": "a real quote",\n'
+            f'  "quote_attribution": "who said it",\n'
+            f'  "impact_areas": ["area1","area2","area3"],\n'
+            f'  "news_category": "category",\n'
+            f'  "virality_score": 8\n'
+            f'}}'
         )
 
-    def find_top_story(self) -> dict:
-        return self.think(
-            f"Find THE single most important, viral AI news story from the last "
-            f"{config.NEWS_LOOKBACK_DAYS} days (as of today, February 2026). "
-            f"This will be the centrepiece of a thought-leadership brief read by "
-            f"C-suite executives and investors. It must be genuinely significant."
+        search_tool = types.Tool(google_search=types.GoogleSearch())
+        cfg = types.GenerateContentConfig(
+            tools=[search_tool],
+            system_instruction=(
+                "You are a news intelligence agent. Use Google Search to "
+                "find real trending news with specific articles and details."
+            ),
+            temperature=0.3,
         )
+
+        resp = self._client.models.generate_content(
+            model=config.MODEL_NEWS_SCOUT,
+            contents=prompt,
+            config=cfg,
+        )
+
+        text = resp.text
+        it = getattr(resp.usage_metadata, 'prompt_token_count', 0) or 0
+        ot = getattr(resp.usage_metadata, 'candidates_token_count', 0) or 0
+        cost = (it * 0.10 + ot * 0.40) / 1e6
+        print(f"    [News Scout] Gemini+Search | {it + ot} tok | ${cost:.6f}")
+
+        # ── Extract REAL URLs from grounding metadata ──
+        real_urls = []
+        for cand in resp.candidates:
+            gm = getattr(cand, "grounding_metadata", None)
+            if not gm:
+                continue
+            chunks = getattr(gm, "grounding_chunks", None) or []
+            for chunk in chunks:
+                web = getattr(chunk, "web", None)
+                if not web:
+                    continue
+                uri = getattr(web, "uri", "")
+                title = getattr(web, "title", "")
+                if uri:
+                    real_urls.append({"uri": uri, "title": title})
+
+        print(f"    [Grounding] {len(real_urls)} source URLs from Google Search")
+
+        # ── Resolve redirect URLs and verify ──
+        # Try ALL grounding URLs, skip category pages, pick first real article
+        verified_url = None
+        verified_publisher = None
+        for src in real_urls:
+            uri = src["uri"]
+            resolved = None
+            if "vertexaisearch.cloud.google.com" in uri:
+                resolved = self._resolve_grounding_url(uri)
+                if not resolved:
+                    print(f"    [Skip] {src['title']} → category/index page")
+                    continue
+            elif uri.startswith("http"):
+                resolved = uri
+            else:
+                continue
+
+            print(f"    [Redirect] {src['title']} → {resolved[:80]}")
+            if self._verify_url(resolved):
+                verified_url = resolved
+                verified_publisher = src["title"]
+                print(f"    [Verified] ✓ HTTP 200: {resolved[:80]}")
+                break
+            else:
+                print(f"    [Verified] ✗ not accessible")
+
+        # ── Parse LLM response (may contain prose + JSON) ──
+        import re
+        result = None
+        # Try direct parse
+        try:
+            result = json.loads(text)
+        except json.JSONDecodeError:
+            pass
+        # Try stripping markdown fences
+        if result is None:
+            clean = text.strip()
+            if "```" in clean:
+                clean = "\n".join(
+                    l for l in clean.split("\n")
+                    if not l.strip().startswith("```"))
+                try:
+                    result = json.loads(clean)
+                except json.JSONDecodeError:
+                    pass
+        # Try extracting JSON object from prose text
+        if result is None:
+            match = re.search(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', text, re.DOTALL)
+            if match:
+                try:
+                    result = json.loads(match.group())
+                except json.JSONDecodeError:
+                    pass
+        # Last resort: build result from the text + grounding
+        if result is None:
+            # Extract headline-like content from the prose
+            lines = [l.strip() for l in text.split("\n") if l.strip()]
+            headline = lines[0][:120] if lines else "Trending News"
+            result = {
+                "headline": headline,
+                "exact_news_headline": headline,
+                "summary": text[:300],
+                "summary_points": [l[:80] for l in lines[1:7]],
+                "date": "",
+                "source": "",
+                "why_viral": "trending on Google",
+                "impact_areas": [],
+                "news_category": "general",
+                "virality_score": 7,
+            }
+
+        if isinstance(result, list):
+            result = result[0] if result else {}
+
+        # ── Inject verified URL (overrides any hallucinated URL) ──
+        if verified_url:
+            result["news_url"] = verified_url
+            if verified_publisher:
+                result["publisher"] = (
+                    result.get("publisher") or verified_publisher
+                )
+        elif not result.get("news_url", "").startswith("http"):
+            result["abort"] = True
+            result["reason"] = "No verified URL from search grounding"
+
+        return result
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -78,7 +289,7 @@ class Historian(Agent):
 
     def analyse(self, story: dict) -> dict:
         return self.think(
-            "Provide the historical perspective on this AI news story.",
+            "Provide the historical perspective on this news story.",
             context={"story": story},
         )
 
@@ -94,7 +305,7 @@ class Economist(Agent):
             model=config.MODEL_ECONOMIST,
             system_prompt=(
                 "You are a chief economist at a top-tier investment bank. You analyse "
-                "AI developments through the lens of markets, labour, productivity, "
+                "major news through the lens of markets, labour, productivity, "
                 "and macroeconomics.\n\n"
                 "Your analysis should:\n"
                 "- Quantify the economic impact where possible ($ figures, % changes)\n"
@@ -114,7 +325,7 @@ class Economist(Agent):
 
     def analyse(self, story: dict) -> dict:
         return self.think(
-            "Provide the economic impact analysis of this AI news story.",
+            "Provide the economic impact analysis of this news story.",
             context={"story": story},
         )
 
@@ -150,7 +361,7 @@ class Sociologist(Agent):
 
     def analyse(self, story: dict) -> dict:
         return self.think(
-            "Provide the sociological perspective on this AI news story.",
+            "Provide the sociological perspective on this news story.",
             context={"story": story},
         )
 
@@ -185,7 +396,7 @@ class Futurist(Agent):
 
     def analyse(self, story: dict) -> dict:
         return self.think(
-            "Provide your future predictions based on this AI news story.",
+            "Provide your future predictions based on this news story.",
             context={"story": story},
         )
 
@@ -200,72 +411,81 @@ class ContentWriter(Agent):
             role="Synthesises perspectives into polished poster content",
             model=config.MODEL_CONTENT_WRITER,
             system_prompt=(
-                "You are the ghostwriter for Bhasker Kumar — a globally recognised AI "
+                "You are the ghostwriter for Bhasker Kumar — a globally recognised "
                 "thought leader who keynotes Davos and advises heads of state. "
                 "You write like a luxury brand writes copy: every word is intentional, "
                 "every sentence is crafted to feel premium and aspirational.\n\n"
                 f"{GUARDRAIL}\n\n"
                 "FORMAT: You create POSTER content — NOT slides, NOT documents.\n"
                 "Think: Nike poster, Apple keynote, Vogue cover, Porsche ad.\n\n"
-                "POSTER RULES:\n"
-                "- EXACTLY 3 content pages (+ 1 hero/cover = 4 total poster pages)\n"
-                "- Each page is ONE powerful visual statement\n"
-                "- MASSIVE words. 5-10 words per page for the hero statement\n"
-                "- One supporting line (10-15 words) beneath — that's it\n"
-                "- The WORDS are the design. Every word must stop someone scrolling\n"
-                "- No paragraphs. No bullet lists. No dense text. IMPACT.\n"
-                "- Quality over quantity. Less is more. One diamond, not a bag of pebbles.\n"
+                "PAGE STRUCTURE (in exact order):\n\n"
+                "PAGE 1 — 'hero' (cover/landing page):\n"
+                "  Massive title, subtitle, author name. No bullet points.\n\n"
+                "PAGE 2 — 'news_summary' (the original news source):\n"
+                "  This page presents the original news article.\n"
+                "  Fields: news_headline (exact original headline from the source),\n"
+                "          news_publisher (e.g. 'Bloomberg', 'Reuters'),\n"
+                "          news_url (direct link to the article),\n"
+                "          summary_points: list of EXACTLY 6 bullet points summarising\n"
+                "            the news facts (each 10-15 words)\n\n"
+                "PAGES 3-6 — content pages (mix of 'impact', 'stat', 'quote'):\n"
+                "  Each content page has EXACTLY 5 bullet points.\n"
+                "  Each point: a bold statement (5-10 words) + supporting detail (10-15 words)\n"
+                "  Format each point as: {point: string, detail: string}\n"
+                "  - At least 1 stat page with a HERO NUMBER\n"
+                "  - At least 1 powerful quote page\n"
+                "  - Each page has a page_title (5-8 words, the theme of that page)\n\n"
+                "STRICT GUARDRAILS:\n"
+                "- Maximum 10 words per point statement\n"
+                "- Maximum 15 words per detail line\n"
                 "- Use specific numbers, dates, names — precision is luxury\n"
                 "- Neutral tone — never negative about individuals. May critique ideas.\n"
                 "- Author is ALWAYS 'Bhasker Kumar'\n\n"
-                "PAGE TYPES (3 content pages from these):\n"
-                "  impact — bold hero statement + supporting line\n"
-                "  stat — MASSIVE hero number + tiny label + context\n"
-                "  quote — dramatic quote with attribution\n\n"
-                "STRICT GUARDRAIL: Maximum 10 words per hero statement. "
-                "Maximum 15 words per supporting line. LESS IS EVERYTHING.\n\n"
                 "Return JSON with:\n"
                 "  brief_title: string (5-8 words, punchy)\n"
                 "  subtitle: string (one line)\n"
                 "  author_name: 'Bhasker Kumar'\n"
                 "  author_title: string\n"
-                "  pages: list of 4 objects (hero + 3 content), each with:\n"
-                "    page_type: 'hero' | 'impact' | 'stat' | 'quote'\n"
-                "    hero_statement: string (5-10 POWERFUL words)\n"
-                "    supporting_line: string (10-15 words)\n"
-                "    hero_number: string (for stat pages, e.g. '$4.2T')\n"
-                "    hero_label: string (for stat pages, 3-5 words)\n"
-                "    context_line: string (for stat pages, one sentence)\n"
-                "    quote: string (for quote pages, 12-20 words)\n"
-                "    attribution: string (who said it)\n"
-                "    visual_mood: string (mood for DALL-E image)\n"
+                "  pages: list of 6 objects:\n"
+                "    [0] page_type: 'hero', hero_statement, supporting_line\n"
+                "    [1] page_type: 'news_summary', news_headline, news_publisher, "
+                "news_url, summary_points (6 strings)\n"
+                "    [2-5] page_type: 'impact'|'stat'|'quote', page_title, "
+                "points: [{point, detail}, ...] (5 items each),\n"
+                "           hero_number (for stat), hero_label (for stat), "
+                "quote (for quote), attribution (for quote),\n"
+                "           visual_mood: string\n"
             ),
         )
 
     def synthesise(self, story: dict, perspectives: dict,
                    editor_notes: dict = None) -> dict:
-        """Synthesise into poster format — 3 content pages."""
+        """Synthesise into poster format — news summary + 4 content pages."""
         ctx = {"story": story, "perspectives": perspectives}
         if editor_notes:
             ctx["editor_revision_notes"] = editor_notes
         return self.think(
-            "CREATE A 4-PAGE POSTER (1 hero cover + 3 content pages).\n\n"
+            "CREATE A 6-PAGE POSTER (1 hero + 1 news summary + 4 content pages).\n\n"
             "This is a POSTER, not a document. Think: Nike, Apple, Vogue, Porsche.\n\n"
             "RULES:\n"
-            "- Page 1: 'hero' (cover page — massive title)\n"
-            "- Pages 2-4: mix of 'impact', 'stat', 'quote'\n"
+            "- Page 1: 'hero' (cover — massive title)\n"
+            "- Page 2: 'news_summary' (original news: headline, publisher, URL, "
+            "6 summary bullet points)\n"
+            "- Pages 3-6: mix of 'impact', 'stat', 'quote'\n"
+            "  - Each has page_title + EXACTLY 5 points [{point, detail}]\n"
             "  - At least 1 stat page with a HERO NUMBER\n"
-            "  - At least 1 powerful quote\n"
-            "  - MASSIVE words. 5-10 words per hero statement. MAX.\n"
-            "  - Supporting line: 10-15 words. That's it.\n\n"
-            "EXACTLY 4 pages. First is 'hero'. Author: 'Bhasker Kumar'.\n"
+            "  - At least 1 powerful quote page\n\n"
+            "The news_summary page MUST use the EXACT original headline, publisher, "
+            "and URL from the story context. The 6 summary points must be factual "
+            "and concise (10-15 words each).\n\n"
+            "EXACTLY 6 pages. Author: 'Bhasker Kumar'.\n"
             "Every word earns its place. Less is everything.",
             context=ctx,
-            max_tokens=4000,
+            max_tokens=6000,
         )
 
     def synthesise_poster(self, story: dict, perspectives: dict,
-                          page_count: int = 4, editor_notes: dict = None) -> dict:
+                          page_count: int = 6, editor_notes: dict = None) -> dict:
         """Alias for synthesise — always poster format now."""
         return self.synthesise(story, perspectives, editor_notes)
 
@@ -358,8 +578,8 @@ class EditorInChief(Agent):
             role="Orchestrates the editorial discussion",
             model=config.MODEL_EDITOR_IN_CHIEF,
             system_prompt=(
-                "You are the editor-in-chief of the most prestigious AI strategy "
-                "publication in the world. You orchestrate a team of brilliant analysts "
+            "You are the editor-in-chief of the most prestigious strategy "
+            "publication in the world. You orchestrate a team of brilliant analysts "
                 "and hold them to the highest standards.\n\n"
                 f"{GUARDRAIL}\n\n"
                 "When reviewing perspectives, you:\n"
@@ -429,8 +649,23 @@ class LinkedInExpert(Agent):
                 "7. Blank line\n"
                 "8. Hashtags (5-8, mix of broad and niche)\n\n"
                 "LENGTH: 1200-1800 characters (sweet spot for engagement)\n\n"
+                "MANDATORY — SOURCE REFERENCE:\n"
+                "At the end of the post (before hashtags), ALWAYS include:\n"
+                "━━━━━━━━━━━━━━━━━━━\n"
+                "📰 𝗦𝗼𝘂𝗿𝗰𝗲: Publisher Name\n"
+                "🔗 https://example.com/full-article-url\n"
+                "━━━━━━━━━━━━━━━━━━━\n"
+                "This makes the source clickable in LinkedIn. NEVER skip this.\n\n"
+                "CRITICAL URL FORMAT RULE:\n"
+                "LinkedIn does NOT render Markdown. NEVER use [text](url) format.\n"
+                "Just paste the raw URL on its own line: https://...\n"
+                "LinkedIn auto-detects URLs and makes them clickable.\n"
+                "WRONG: [Read the article](https://example.com)\n"
+                "WRONG: [https://example.com](https://example.com)\n"
+                "RIGHT: https://example.com\n\n"
                 "Return JSON with:\n"
-                "  post_text: string (the full LinkedIn post with unicode formatting)\n"
+                "  post_text: string (the full LinkedIn post with unicode formatting "
+                "INCLUDING the source reference block at the end)\n"
                 "  document_title: string (catchy, attention-grabbing title for the "
                 "PDF carousel view in LinkedIn — NOT 'AI Strategy Brief' — must be "
                 "topic-specific, scroll-stopping, 5-10 words, e.g. 'The $4T Race: "
@@ -442,12 +677,40 @@ class LinkedInExpert(Agent):
             ),
         )
 
+    @staticmethod
+    def _clean_linkedin_links(text: str) -> str:
+        """Strip Markdown link syntax — LinkedIn doesn't render it.
+
+        [text](url) → url
+        [url](url) → url
+        """
+        import re
+        # [any text](https://...) → just the URL
+        text = re.sub(
+            r'\[([^\]]*)\]\((https?://[^\)]+)\)',
+            r'\2',
+            text,
+        )
+        return text
+
     def craft_post(self, story: dict, brief_content: dict) -> dict:
-        return self.think(
-            "Write a LinkedIn post promoting this AI brief. The post should "
+        news_url = story.get("news_url", "")
+        publisher = story.get("publisher", "")
+        result = self.think(
+            "Write a LinkedIn post promoting this brief. The post should "
             "stand on its own as valuable content — not just a promo. Use "
             "Unicode bold characters for the header and key phrases. The post "
-            "should feel like it came from a senior AI strategy partner.",
-            context={"story": story, "brief_summary": brief_content},
+            "should feel like it came from a senior strategy partner.\n\n"
+            "MANDATORY: Include the source reference at the end of the post "
+            f"(before hashtags). Publisher: {publisher}. URL: {news_url}. "
+            "The URL must be a PLAIN URL on its own line (NO Markdown). "
+            "LinkedIn auto-detects URLs and makes them clickable. "
+            "NEVER use [text](url) format.",
+            context={"story": story, "brief_summary": brief_content,
+                     "news_url": news_url, "publisher": publisher},
             max_tokens=3000,
         )
+        # Post-process: strip any Markdown links the LLM still outputs
+        if isinstance(result, dict) and "post_text" in result:
+            result["post_text"] = self._clean_linkedin_links(result["post_text"])
+        return result

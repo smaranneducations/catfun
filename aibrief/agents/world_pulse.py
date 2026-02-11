@@ -1,8 +1,8 @@
 """WorldPulseScanner — Scans global sentiment before any content decision.
 
 Uses Gemini with Google Search grounding for real-time data:
-  - Top trending topics globally
-  - Major AI news in last 24-48 hours
+  - Top trending topics globally (ANY topic, not just AI)
+  - Most-searched/most-viral news of the day
   - Stock market sentiment
   - Viral content
   - Overall world mood
@@ -24,7 +24,7 @@ MOOD_BOUNDARIES = {
 SYSTEM_PROMPT = (
     "You are a global intelligence analyst codenamed Aria. "
     "You scan the world's information landscape in real-time to assess "
-    "the current mood of humanity and the AI industry.\n\n"
+    "the current mood of humanity — ALL topics, not just technology.\n\n"
     "You are CALIBRATED: most days are NORMAL. Only flag extreme if "
     "genuinely extreme (war, market crash, major tragedy). "
     "80% of days should score between -20 and 20.\n\n"
@@ -62,8 +62,8 @@ class WorldPulseScanner:
 
         prompt = (
             "Today is February 2026. Scan the current global state:\n\n"
-            "1. Top 3 trending news topics globally right now\n"
-            "2. Any major AI news in the last 24-48 hours\n"
+            "1. Top 3 MOST TRENDING / MOST SEARCHED topics globally right now\n"
+            "2. The single most viral news story today (ANY topic)\n"
             "3. Stock market sentiment (up/down/volatile?)\n"
             "4. Any major world events (geopolitical, disasters, etc.)\n"
             "5. What's going viral on social media today?\n"
@@ -75,7 +75,7 @@ class WorldPulseScanner:
             '  "mood": "<extreme_sad|anxious|normal|optimistic|euphoric>",\n'
             '  "trending_topics": ["topic1", "topic2", "topic3"],\n'
             '  "major_events": ["event1 if any"],\n'
-            '  "ai_news": ["ai_news_1", "ai_news_2"],\n'
+            '  "top_viral_news": "the single most viral/trending headline today",\n'
             '  "market_sentiment": "<bullish|bearish|mixed|volatile>",\n'
             '  "viral_content": ["content1", "content2"],\n'
             '  "reasoning": "Brief explanation of sentiment score",\n'
@@ -113,19 +113,18 @@ class WorldPulseScanner:
         from google.genai import types
 
         prompt = (
-            "Today is February 10, 2026. Based on your knowledge of recent "
-            "world events, AI industry developments, and general global "
-            "sentiment trends, provide your best assessment of the current "
-            "world mood.\n\n"
-            "Consider: recent AI breakthroughs, geopolitical tensions, "
-            "market conditions, and trending topics.\n\n"
+            "Today is February 11, 2026. Based on your knowledge of recent "
+            "world events and general global sentiment trends, provide your "
+            "best assessment of the current world mood.\n\n"
+            "Consider: geopolitical tensions, market conditions, "
+            "trending topics, viral news, sports, entertainment.\n\n"
             "Respond in this EXACT JSON format:\n"
             "{\n"
             '  "sentiment_score": <-100 to 100>,\n'
             '  "mood": "<extreme_sad|anxious|normal|optimistic|euphoric>",\n'
             '  "trending_topics": ["topic1", "topic2", "topic3"],\n'
             '  "major_events": ["event1 if any"],\n'
-            '  "ai_news": ["ai_news_1", "ai_news_2"],\n'
+            '  "top_viral_news": "the single most viral/trending headline today",\n'
             '  "market_sentiment": "<bullish|bearish|mixed|volatile>",\n'
             '  "viral_content": ["content1", "content2"],\n'
             '  "reasoning": "Brief explanation of sentiment score",\n'

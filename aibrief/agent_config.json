@@ -67,10 +67,10 @@
     },
     "NewsScout": {
       "name": "Sable",
-      "role": "Finds the specific topic to cover",
+      "role": "Finds trending news via Gemini + Google Search grounding (real URLs from search results)",
       "model": "gemini-2.0-flash",
       "fixed_strings": {
-        "core_instruction": "Find the best topic for the chosen content type. Must pass semantic dedup (70% threshold). Must connect to AI thought leadership anchor. If content type is not news-based (e.g., leadership essay, motivation), find an appropriate angle or theme rather than a news event."
+        "core_instruction": "Uses Google Search grounding to find real trending news with verified URLs. URLs come from actual search results, not LLM memory. HTTP-verified before acceptance."
       },
       "variable_strings": {
         "content_type": {
@@ -95,83 +95,52 @@
     },
     "DesignDNA": {
       "name": "Vesper",
-      "role": "Creates the complete visual identity for this brief",
+      "role": "Detects dominant EMOTION → hardcoded design map resolves style/palette/font",
       "model": "gemini-2.0-pro",
       "fixed_strings": {
-        "core_instruction": "Create a complete visual identity that matches the world sentiment, content type, and topic. Every choice must be justified by design psychology. The result must feel like it came from a luxury brand creative director at Hermès or Chanel.",
-        "available_themes": [
-          "Luxury Minimalist",
-          "Japanese Wabi-Sabi",
-          "Art Deco",
-          "Swiss International",
-          "Indian Classical",
-          "Ancient Greek",
-          "Gothic Editorial",
-          "Bauhaus",
-          "Nordic Clean",
-          "Italian Renaissance",
-          "Cyberpunk Noir",
-          "Anime Pop",
-          "French Haute Couture",
-          "British Heritage",
-          "African Futurism"
+        "core_instruction": "Detect the SINGLE dominant emotion of the news story. Style, palette, font, and image keywords are ALL hardcoded in EMOTION_DESIGN_MAP. The LLM only classifies the emotion.",
+        "valid_emotions": [
+          "trust",
+          "excitement",
+          "calm",
+          "urgency",
+          "fear",
+          "anger",
+          "sadness",
+          "hope",
+          "mystery",
+          "rebellion"
         ],
-        "available_fonts": [
-          "Playfair Display",
-          "Cormorant Garamond",
-          "DM Sans",
-          "Bodoni Moda",
-          "Inter",
-          "Noto Serif",
-          "Libre Baskerville",
-          "Raleway",
-          "Lora",
-          "Source Serif Pro"
-        ]
+        "emotion_to_imagen_style": {
+          "trust": "corporate minimal, professional, clean",
+          "excitement": "anime, vibrant, dynamic",
+          "calm": "minimalist, zen, soft pastel",
+          "urgency": "breaking news, editorial, high-contrast",
+          "fear": "caution, hazard, tense",
+          "anger": "protest, gritty editorial, harsh contrast",
+          "sadness": "somber, memorial, muted monochrome",
+          "hope": "uplifting, optimistic, sunrise",
+          "mystery": "gothic, medieval, ornate, moody",
+          "rebellion": "heavy metal, distressed, metallic"
+        }
       },
       "variable_strings": {
-        "world_pulse": {
-          "source": "WorldPulseScanner",
-          "description": "Global sentiment"
-        },
-        "content_type": {
-          "source": "ContentStrategist",
-          "description": "Chosen content type and tone"
-        },
-        "topic": {
+        "headline": {
           "source": "NewsScout",
-          "description": "The specific topic/story"
+          "description": "News headline to classify emotion"
         },
-        "page_count": {
-          "source": "ContentStrategist",
-          "description": "Number of pages (2-10)"
+        "summary": {
+          "source": "NewsScout",
+          "description": "News summary for context"
+        },
+        "world_mood": {
+          "source": "WorldPulseScanner",
+          "description": "Global mood as secondary signal"
         }
       },
       "outputs_to": [
-        "DesignReviewer",
         "VisualGenerator",
         "PDFRenderer"
-      ]
-    },
-    "DesignReviewer": {
-      "name": "Onyx",
-      "role": "Critiques design DNA — ensures it matches sentiment and brand",
-      "model": "gemini-2.0-flash",
-      "fixed_strings": {
-        "core_instruction": "Review the design DNA. Does the color psychology match the world sentiment? Is the theme appropriate for today's mood? Would this feel right if a CEO saw it given what is happening in the world right now? Reject if mismatched."
-      },
-      "variable_strings": {
-        "design_dna": {
-          "source": "DesignDNA",
-          "description": "The proposed visual identity"
-        },
-        "world_pulse": {
-          "source": "WorldPulseScanner",
-          "description": "Current sentiment to validate against"
-        }
-      },
-      "outputs_to": [
-        "DesignDNA"
       ]
     },
     "Historian": {
@@ -420,10 +389,10 @@
     },
     "VisualGenerator": {
       "name": "Prism",
-      "role": "Generates DALL-E images and Pillow infographics",
-      "model": "dall-e-3",
+      "role": "Generates Imagen images and Pillow infographics using emotion-driven style",
+      "model": "imagen-4.0-generate-001",
       "fixed_strings": {
-        "core_instruction": "Every image must include the image_generation_key from DesignDNA for visual coherence across all pages."
+        "core_instruction": "Image prompts use hardcoded imagen_style + bg_motifs + fg_mood from the emotion map. No LLM involvement in style selection."
       },
       "variable_strings": {
         "design_dna": {
@@ -509,13 +478,13 @@
   },
   "controls": {
     "autonomous": true,
-    "post_to_linkedin": false,
-    "content_pages": 3,
+    "post_to_linkedin": true,
+    "content_pages": 4,
     "dedup_threshold": 0.7,
     "validation_threshold": 80,
     "max_design_rounds": 3,
     "max_content_rounds": 3,
-    "max_topic_attempts": 3,
+    "max_topic_attempts": 8,
     "sentiment_extreme_threshold": -60,
     "skip_post_if_extreme_sad": true,
     "force_content_type": null,

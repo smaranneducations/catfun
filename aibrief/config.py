@@ -44,8 +44,9 @@ OUTPUT_DIR.mkdir(exist_ok=True)
 
 # --- News Settings ---
 NEWS_LOOKBACK_DAYS = 7
-NEWS_CATEGORIES = ["AI", "artificial intelligence", "machine learning", "LLM",
-                   "generative AI", "AGI", "AI regulation", "AI startup"]
+NEWS_CATEGORIES = ["trending", "viral", "breaking news", "most searched",
+                   "top stories", "global news", "economy", "technology",
+                   "politics", "science", "business", "entertainment"]
 
 # --- PDF Settings ---
 PDF_PAGE_WIDTH = 612   # Letter size (8.5 x 11 inches in points)
