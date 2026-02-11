@@ -1,25 +1,26 @@
 """DesignDNA — Creates a complete, sentiment-aware visual identity.
 
-Based on world pulse, content type, and topic, generates:
-  - Font family (from curated luxury list)
-  - Complete color palette (6 hex colors)
-  - Design theme (from 15+ options)
-  - Visual motif
-  - Image generation key (appended to ALL DALL-E prompts for coherence)
-  - Mood descriptor
+Now FORCED to pick from the design catalog:
+  - style_id from 12 curated styles
+  - palette_id from 10 curated color palettes
+  - font_id from 10 curated fonts
 
-This replaces the old DesignDirector with a context-aware approach
-where every design choice is justified by the world sentiment,
-content type, and design psychology.
+The LLM chooses based on content context, world sentiment, and topic.
+Every choice must be justified. This ensures:
+  1. Forced variety (can never repeat the same look)
+  2. Quality control (all options are pre-vetted)
+  3. Technical reliability (fonts are tested)
 """
 from aibrief.agents.base import Agent
 from aibrief import config
+from aibrief.pipeline.design_catalog import get_catalog_for_prompt
 
 
 class DesignDNAAgent(Agent):
     """Creates unified visual identity for each brief. Codename: Vesper."""
 
     def __init__(self):
+        catalog = get_catalog_for_prompt()
         super().__init__(
             name="Design DNA",
             role="Creates the complete visual identity for each brief",
@@ -28,62 +29,58 @@ class DesignDNAAgent(Agent):
                 "You are Vesper, the creative director for Bhasker Kumar's "
                 "thought leadership publications. Think: Hermès at Davos meets "
                 "Bloomberg Businessweek meets Chanel editorial.\n\n"
-                "Your job: create a COMPLETE visual identity for today's "
-                "publication. Every choice must be:\n"
-                "1. JUSTIFIED by the world sentiment (don't use bright happy "
-                "colors on a somber day)\n"
-                "2. MATCHED to the content type (news analysis = bold, "
-                "leadership essay = refined, motivational = warm)\n"
-                "3. COMPLETELY DIFFERENT from any prior design\n"
-                "4. Luxury brand quality (Hermès, Chanel, Cartier)\n\n"
-                "AVAILABLE THEMES:\n"
-                "  Luxury Minimalist, Japanese Wabi-Sabi, Art Deco,\n"
-                "  Swiss International, Indian Classical, Ancient Greek,\n"
-                "  Gothic Editorial, Bauhaus, Nordic Clean,\n"
-                "  Italian Renaissance, Cyberpunk Noir, Anime Pop,\n"
-                "  French Haute Couture, British Heritage, African Futurism\n\n"
-                "FONT FAMILIES (use ONE consistently):\n"
-                "  Georgia, Garamond, Palatino, Helvetica, Times,\n"
-                "  Courier, Bookman, Avant Garde\n"
-                "  (These are PDF-safe fonts. Choose the one that matches the theme.)\n\n"
-                "COLOR PSYCHOLOGY:\n"
-                "  Blue = trust, authority. Gold = luxury, premium.\n"
-                "  Deep navy = gravitas. Emerald = growth. Burgundy = power.\n"
-                "  Charcoal = sophistication. Warm gray = balance.\n"
-                "  NEVER plain white background — always rich, warm, or deep tones.\n\n"
-                "IMAGE GENERATION KEY: A 10-15 word phrase that will be appended "
-                "to EVERY DALL-E image prompt. This ensures all images across the "
-                "brief have visual coherence. Think of it as a 'style directive'.\n"
-                "Example: 'luxury editorial, dark moody lighting, geometric precision, "
-                "gold accents on charcoal'\n\n"
+                "Your job: pick a COMPLETE visual identity from the catalog below. "
+                "You MUST pick from these lists — no freestyle.\n\n"
+                f"{catalog}\n\n"
+                "SELECTION RULES:\n"
+                "1. Pick style_id based on the CONTENT TYPE and TOPIC (anime for "
+                "energetic/fun, gothic for dramatic, luxury for authority, etc.)\n"
+                "2. Pick palette_id based on the WORLD SENTIMENT (dark palettes "
+                "for anxious times, warm for optimistic, cool for analytical)\n"
+                "3. Pick font_id based on the STYLE (serif for classical, "
+                "sans for modern, mono for tech). Use the recommended pairings "
+                "as guidance but you CAN mix.\n"
+                "4. NEVER repeat the same combination. Deliberately surprise.\n"
+                "5. Justify EVERY choice with design psychology.\n\n"
+                "You must also provide:\n"
+                "- image_generation_key: 10-15 word phrase appended to ALL "
+                "DALL-E prompts for visual coherence. Include the style's "
+                "dall_e_hint essence.\n"
+                "- design_name: an evocative name for this specific design\n\n"
                 "Return JSON:\n"
                 "{\n"
+                '  "style_id": "from catalog",\n'
+                '  "palette_id": "from catalog",\n'
+                '  "font_id": "from catalog",\n'
                 '  "design_name": "evocative name for this design",\n'
-                '  "theme": "one of the available themes",\n'
-                '  "font_family": "font name",\n'
-                '  "primary_color": "#hex",\n'
+                '  "image_generation_key": "10-15 word DALL-E style directive",\n'
+                '  "mood": "descriptive mood phrase",\n'
+                '  "visual_motif": "geometric / organic / abstract / etc.",\n'
+                '  "design_justification": "why these choices for today",\n'
+                '  "primary_color": "#hex (from chosen palette)",\n'
                 '  "secondary_color": "#hex",\n'
                 '  "accent_color": "#hex",\n'
-                '  "background_color": "#hex (NOT white or near-white)",\n'
+                '  "background_color": "#hex",\n'
                 '  "text_color": "#hex",\n'
-                '  "heading_color": "#hex",\n'
-                '  "mood": "descriptive mood phrase",\n'
-                '  "visual_motif": "geometric, organic, abstract, etc.",\n'
-                '  "image_generation_key": "10-15 word style directive for DALL-E",\n'
-                '  "cover_layout": "describe the cover design concept",\n'
-                '  "design_justification": "why these choices for today\'s sentiment"\n'
+                '  "heading_color": "#hex"\n'
                 "}"
             ),
         )
 
     def create_identity(self, world_pulse: dict, strategy: dict,
                         story: dict) -> dict:
-        """Generate a complete visual identity based on context."""
+        """Generate a complete visual identity from the catalog."""
         return self.think(
-            "Create a COMPLETE visual identity for today's publication. "
+            "Pick a COMPLETE visual identity from the catalog. "
+            "You MUST use style_id, palette_id, font_id from the lists. "
             "Every choice must be justified by the world sentiment, "
             "content type, and topic. The background MUST be rich — never "
-            "white or plain. Think luxury keynote at Davos.",
+            "white or plain. Think luxury keynote at Davos.\n\n"
+            "CRITICAL: Pick something that MATCHES the content. "
+            "If the topic is dramatic → gothic or heavy metal. "
+            "If the topic is about innovation → cyberpunk or swiss. "
+            "If the topic is about leadership → luxury or haute couture. "
+            "Be bold. Surprise me.",
             context={
                 "world_pulse": {
                     "mood": world_pulse.get("mood"),
@@ -99,7 +96,7 @@ class DesignDNAAgent(Agent):
                     "headline": story.get("headline", ""),
                     "why_viral": story.get("why_viral", ""),
                 },
-                "format": "landscape presentation slides (792x612 pts)",
+                "format": "portrait poster (612x792 pts, 3 content pages)",
             },
-            temperature=0.8,  # Higher creativity for design
+            temperature=0.9,  # High creativity for design
         )

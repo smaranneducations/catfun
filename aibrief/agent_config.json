@@ -1,6 +1,5 @@
 {
   "mode": "autonomous",
-
   "brand_identity": {
     "fixed": {
       "author": "Bhasker Kumar",
@@ -12,11 +11,15 @@
       "assistant_name": {
         "source": "LuxuryNameGenerator",
         "description": "Rotating luxury brand-style name (perfume, leather goods, jewelry flavor)",
-        "examples": ["Jaguar Phantom", "Aurèle Prestige", "Maison Soleil", "Obsidian Crown"]
+        "examples": [
+          "Jaguar Phantom",
+          "Aurèle Prestige",
+          "Maison Soleil",
+          "Obsidian Crown"
+        ]
       }
     }
   },
-
   "agents": {
     "WorldPulseScanner": {
       "name": "Aria",
@@ -26,9 +29,10 @@
         "core_instruction": "Scan global news, trends, and market indicators to assess the current world sentiment. Use Google search to find: top trending topics, major breaking news, market conditions (VIX, Fear/Greed), and viral content. Be calibrated — most days are NORMAL. Only flag extreme if genuinely extreme (war, market crash, major tragedy). Return a structured sentiment assessment."
       },
       "variable_strings": {},
-      "outputs_to": ["ContentStrategist"]
+      "outputs_to": [
+        "ContentStrategist"
+      ]
     },
-
     "ContentStrategist": {
       "name": "Marcus",
       "role": "Decides content TYPE and length based on world pulse",
@@ -56,9 +60,11 @@
           "description": "Current global sentiment data including score, trending topics, major events"
         }
       },
-      "outputs_to": ["DesignDNA", "NewsScout"]
+      "outputs_to": [
+        "DesignDNA",
+        "NewsScout"
+      ]
     },
-
     "NewsScout": {
       "name": "Sable",
       "role": "Finds the specific topic to cover",
@@ -67,13 +73,26 @@
         "core_instruction": "Find the best topic for the chosen content type. Must pass semantic dedup (70% threshold). Must connect to AI thought leadership anchor. If content type is not news-based (e.g., leadership essay, motivation), find an appropriate angle or theme rather than a news event."
       },
       "variable_strings": {
-        "content_type": {"source": "ContentStrategist", "description": "The chosen content type and tone"},
-        "world_pulse": {"source": "WorldPulseScanner", "description": "Current sentiment context"},
-        "excluded_topics": {"source": "DedupEngine", "description": "Topics already covered"}
+        "content_type": {
+          "source": "ContentStrategist",
+          "description": "The chosen content type and tone"
+        },
+        "world_pulse": {
+          "source": "WorldPulseScanner",
+          "description": "Current sentiment context"
+        },
+        "excluded_topics": {
+          "source": "DedupEngine",
+          "description": "Topics already covered"
+        }
       },
-      "outputs_to": ["Historian", "Economist", "Sociologist", "Futurist"]
+      "outputs_to": [
+        "Historian",
+        "Economist",
+        "Sociologist",
+        "Futurist"
+      ]
     },
-
     "DesignDNA": {
       "name": "Vesper",
       "role": "Creates the complete visual identity for this brief",
@@ -81,27 +100,59 @@
       "fixed_strings": {
         "core_instruction": "Create a complete visual identity that matches the world sentiment, content type, and topic. Every choice must be justified by design psychology. The result must feel like it came from a luxury brand creative director at Hermès or Chanel.",
         "available_themes": [
-          "Luxury Minimalist", "Japanese Wabi-Sabi", "Art Deco",
-          "Swiss International", "Indian Classical", "Ancient Greek",
-          "Gothic Editorial", "Bauhaus", "Nordic Clean",
-          "Italian Renaissance", "Cyberpunk Noir", "Anime Pop",
-          "French Haute Couture", "British Heritage", "African Futurism"
+          "Luxury Minimalist",
+          "Japanese Wabi-Sabi",
+          "Art Deco",
+          "Swiss International",
+          "Indian Classical",
+          "Ancient Greek",
+          "Gothic Editorial",
+          "Bauhaus",
+          "Nordic Clean",
+          "Italian Renaissance",
+          "Cyberpunk Noir",
+          "Anime Pop",
+          "French Haute Couture",
+          "British Heritage",
+          "African Futurism"
         ],
         "available_fonts": [
-          "Playfair Display", "Cormorant Garamond", "DM Sans",
-          "Bodoni Moda", "Inter", "Noto Serif", "Libre Baskerville",
-          "Raleway", "Lora", "Source Serif Pro"
+          "Playfair Display",
+          "Cormorant Garamond",
+          "DM Sans",
+          "Bodoni Moda",
+          "Inter",
+          "Noto Serif",
+          "Libre Baskerville",
+          "Raleway",
+          "Lora",
+          "Source Serif Pro"
         ]
       },
       "variable_strings": {
-        "world_pulse": {"source": "WorldPulseScanner", "description": "Global sentiment"},
-        "content_type": {"source": "ContentStrategist", "description": "Chosen content type and tone"},
-        "topic": {"source": "NewsScout", "description": "The specific topic/story"},
-        "page_count": {"source": "ContentStrategist", "description": "Number of pages (2-10)"}
+        "world_pulse": {
+          "source": "WorldPulseScanner",
+          "description": "Global sentiment"
+        },
+        "content_type": {
+          "source": "ContentStrategist",
+          "description": "Chosen content type and tone"
+        },
+        "topic": {
+          "source": "NewsScout",
+          "description": "The specific topic/story"
+        },
+        "page_count": {
+          "source": "ContentStrategist",
+          "description": "Number of pages (2-10)"
+        }
       },
-      "outputs_to": ["DesignReviewer", "VisualGenerator", "PDFRenderer"]
+      "outputs_to": [
+        "DesignReviewer",
+        "VisualGenerator",
+        "PDFRenderer"
+      ]
     },
-
     "DesignReviewer": {
       "name": "Onyx",
       "role": "Critiques design DNA — ensures it matches sentiment and brand",
@@ -110,12 +161,19 @@
         "core_instruction": "Review the design DNA. Does the color psychology match the world sentiment? Is the theme appropriate for today's mood? Would this feel right if a CEO saw it given what is happening in the world right now? Reject if mismatched."
       },
       "variable_strings": {
-        "design_dna": {"source": "DesignDNA", "description": "The proposed visual identity"},
-        "world_pulse": {"source": "WorldPulseScanner", "description": "Current sentiment to validate against"}
+        "design_dna": {
+          "source": "DesignDNA",
+          "description": "The proposed visual identity"
+        },
+        "world_pulse": {
+          "source": "WorldPulseScanner",
+          "description": "Current sentiment to validate against"
+        }
       },
-      "outputs_to": ["DesignDNA"]
+      "outputs_to": [
+        "DesignDNA"
+      ]
     },
-
     "Historian": {
       "name": "Clio",
       "role": "Historical perspective and pattern recognition",
@@ -124,12 +182,20 @@
         "core_instruction": "Find powerful historical parallels. Use specific dates, names, numbers. Write like a McKinsey senior partner. Always connect history to the AI thought leadership anchor."
       },
       "variable_strings": {
-        "story": {"source": "NewsScout", "description": "The topic/story to analyze"},
-        "content_type": {"source": "ContentStrategist", "description": "Determines depth and angle"}
+        "story": {
+          "source": "NewsScout",
+          "description": "The topic/story to analyze"
+        },
+        "content_type": {
+          "source": "ContentStrategist",
+          "description": "Determines depth and angle"
+        }
       },
-      "outputs_to": ["HistorianReviewer", "RoundTable"]
+      "outputs_to": [
+        "HistorianReviewer",
+        "RoundTable"
+      ]
     },
-
     "HistorianReviewer": {
       "name": "Theron",
       "role": "Critiques historical analysis for depth and accuracy",
@@ -138,11 +204,15 @@
         "core_instruction": "Is this analysis superficial or genuinely insightful? Are there concrete data points, dates, names? Is it original or boilerplate? Score 1-10."
       },
       "variable_strings": {
-        "work": {"source": "Historian", "description": "The historical analysis to review"}
+        "work": {
+          "source": "Historian",
+          "description": "The historical analysis to review"
+        }
       },
-      "outputs_to": ["Historian"]
+      "outputs_to": [
+        "Historian"
+      ]
     },
-
     "Economist": {
       "name": "Aurelia",
       "role": "Economic impact and market analysis",
@@ -151,12 +221,20 @@
         "core_instruction": "Quantify economic impact with $ figures and % changes. Identify winners and losers. Connect to macro trends. Always through the AI lens."
       },
       "variable_strings": {
-        "story": {"source": "NewsScout", "description": "The topic to analyze economically"},
-        "content_type": {"source": "ContentStrategist", "description": "Determines framing"}
+        "story": {
+          "source": "NewsScout",
+          "description": "The topic to analyze economically"
+        },
+        "content_type": {
+          "source": "ContentStrategist",
+          "description": "Determines framing"
+        }
       },
-      "outputs_to": ["EconomistReviewer", "RoundTable"]
+      "outputs_to": [
+        "EconomistReviewer",
+        "RoundTable"
+      ]
     },
-
     "EconomistReviewer": {
       "name": "Callisto",
       "role": "Critiques economic analysis",
@@ -165,11 +243,15 @@
         "core_instruction": "Are the numbers credible? Is the analysis deep enough for a CFO audience? Demand specificity."
       },
       "variable_strings": {
-        "work": {"source": "Economist", "description": "Economic analysis to review"}
+        "work": {
+          "source": "Economist",
+          "description": "Economic analysis to review"
+        }
       },
-      "outputs_to": ["Economist"]
+      "outputs_to": [
+        "Economist"
+      ]
     },
-
     "Sociologist": {
       "name": "Sage",
       "role": "Social implications and human impact",
@@ -178,12 +260,20 @@
         "core_instruction": "Focus on human impact of AI. Address inequality and access. Be empathetic but rigorous. Write for Harvard Business Review."
       },
       "variable_strings": {
-        "story": {"source": "NewsScout", "description": "Topic to analyze socially"},
-        "content_type": {"source": "ContentStrategist", "description": "Determines angle"}
+        "story": {
+          "source": "NewsScout",
+          "description": "Topic to analyze socially"
+        },
+        "content_type": {
+          "source": "ContentStrategist",
+          "description": "Determines angle"
+        }
       },
-      "outputs_to": ["SociologistReviewer", "RoundTable"]
+      "outputs_to": [
+        "SociologistReviewer",
+        "RoundTable"
+      ]
     },
-
     "SociologistReviewer": {
       "name": "Liora",
       "role": "Critiques sociological analysis",
@@ -192,11 +282,15 @@
         "core_instruction": "Is the social analysis grounded? Does it avoid generic statements? Are specific communities and impacts named?"
       },
       "variable_strings": {
-        "work": {"source": "Sociologist", "description": "Social analysis to review"}
+        "work": {
+          "source": "Sociologist",
+          "description": "Social analysis to review"
+        }
       },
-      "outputs_to": ["Sociologist"]
+      "outputs_to": [
+        "Sociologist"
+      ]
     },
-
     "Futurist": {
       "name": "Nova",
       "role": "Future predictions and scenario planning",
@@ -205,12 +299,20 @@
         "core_instruction": "Project 3 scenarios with specific time horizons (6mo, 2yr, 5yr). Identify second-order effects. Be bold but grounded. Always through AI lens."
       },
       "variable_strings": {
-        "story": {"source": "NewsScout", "description": "Topic to project forward"},
-        "content_type": {"source": "ContentStrategist", "description": "Determines boldness level"}
+        "story": {
+          "source": "NewsScout",
+          "description": "Topic to project forward"
+        },
+        "content_type": {
+          "source": "ContentStrategist",
+          "description": "Determines boldness level"
+        }
       },
-      "outputs_to": ["FuturistReviewer", "RoundTable"]
+      "outputs_to": [
+        "FuturistReviewer",
+        "RoundTable"
+      ]
     },
-
     "FuturistReviewer": {
       "name": "Orion",
       "role": "Critiques future predictions for groundedness",
@@ -219,11 +321,15 @@
         "core_instruction": "Are predictions grounded or fantasy? Are time horizons specific? Would a CEO trust these forecasts?"
       },
       "variable_strings": {
-        "work": {"source": "Futurist", "description": "Predictions to review"}
+        "work": {
+          "source": "Futurist",
+          "description": "Predictions to review"
+        }
       },
-      "outputs_to": ["Futurist"]
+      "outputs_to": [
+        "Futurist"
+      ]
     },
-
     "ContentWriter": {
       "name": "Quill",
       "role": "Synthesises into luxury keynote slides",
@@ -234,14 +340,27 @@
         "anchor": "INJECT:brand_identity.fixed.anchor_filter"
       },
       "variable_strings": {
-        "perspectives": {"source": "RoundTable", "description": "All analyst perspectives after debate"},
-        "design_dna": {"source": "DesignDNA", "description": "Visual identity to align content tone with"},
-        "content_type": {"source": "ContentStrategist", "description": "Type and tone of content"},
-        "page_count": {"source": "ContentStrategist", "description": "Number of slides"}
+        "perspectives": {
+          "source": "RoundTable",
+          "description": "All analyst perspectives after debate"
+        },
+        "design_dna": {
+          "source": "DesignDNA",
+          "description": "Visual identity to align content tone with"
+        },
+        "content_type": {
+          "source": "ContentStrategist",
+          "description": "Type and tone of content"
+        },
+        "page_count": {
+          "source": "ContentStrategist",
+          "description": "Number of slides"
+        }
       },
-      "outputs_to": ["CopyReviewer"]
+      "outputs_to": [
+        "CopyReviewer"
+      ]
     },
-
     "CopyReviewer": {
       "name": "Sterling",
       "role": "Ensures copy is luxury-ad quality with 1 point per slide",
@@ -250,11 +369,15 @@
         "core_instruction": "REJECT any slide with more than 1 point. Is it CEO-quotable? Does it read like Hermès editorial? Is the brand anchor maintained throughout?"
       },
       "variable_strings": {
-        "work": {"source": "ContentWriter", "description": "The brief to review"}
+        "work": {
+          "source": "ContentWriter",
+          "description": "The brief to review"
+        }
       },
-      "outputs_to": ["ContentWriter"]
+      "outputs_to": [
+        "ContentWriter"
+      ]
     },
-
     "NeutralityGuard": {
       "name": "Justice",
       "role": "Ensures content is neutral, never hurtful",
@@ -264,11 +387,15 @@
         "guardrail": "INJECT:brand_identity.fixed.ethical_guardrail"
       },
       "variable_strings": {
-        "brief": {"source": "ContentWriter", "description": "Final brief to check for neutrality"}
+        "brief": {
+          "source": "ContentWriter",
+          "description": "Final brief to check for neutrality"
+        }
       },
-      "outputs_to": ["ContentWriter"]
+      "outputs_to": [
+        "ContentWriter"
+      ]
     },
-
     "EditorInChief": {
       "name": "Paramount",
       "role": "Final editorial authority",
@@ -278,12 +405,19 @@
         "guardrail": "INJECT:brand_identity.fixed.ethical_guardrail"
       },
       "variable_strings": {
-        "all_perspectives": {"source": "RoundTable", "description": "All analyst work"},
-        "brief": {"source": "ContentWriter", "description": "The synthesised brief"}
+        "all_perspectives": {
+          "source": "RoundTable",
+          "description": "All analyst work"
+        },
+        "brief": {
+          "source": "ContentWriter",
+          "description": "The synthesised brief"
+        }
       },
-      "outputs_to": ["ContentWriter"]
+      "outputs_to": [
+        "ContentWriter"
+      ]
     },
-
     "VisualGenerator": {
       "name": "Prism",
       "role": "Generates DALL-E images and Pillow infographics",
@@ -292,12 +426,19 @@
         "core_instruction": "Every image must include the image_generation_key from DesignDNA for visual coherence across all pages."
       },
       "variable_strings": {
-        "design_dna": {"source": "DesignDNA", "description": "Visual identity including image_generation_key"},
-        "page_content": {"source": "ContentWriter", "description": "Per-page content to visualize"}
+        "design_dna": {
+          "source": "DesignDNA",
+          "description": "Visual identity including image_generation_key"
+        },
+        "page_content": {
+          "source": "ContentWriter",
+          "description": "Per-page content to visualize"
+        }
       },
-      "outputs_to": ["PDFRenderer"]
+      "outputs_to": [
+        "PDFRenderer"
+      ]
     },
-
     "ScreenAuditor": {
       "name": "Ratio",
       "role": "Audits page fill against golden ratio",
@@ -306,11 +447,15 @@
         "core_instruction": "55-65% fill target. No dead space. Golden ratio. Every page must have artistic background."
       },
       "variable_strings": {
-        "pdf_data": {"source": "PDFRenderer", "description": "Page-by-page content summary"}
+        "pdf_data": {
+          "source": "PDFRenderer",
+          "description": "Page-by-page content summary"
+        }
       },
-      "outputs_to": ["FinalValidator"]
+      "outputs_to": [
+        "FinalValidator"
+      ]
     },
-
     "FinalValidator": {
       "name": "Sentinel",
       "role": "Checks all 37+ master rules. Gate: 80% to publish.",
@@ -319,14 +464,27 @@
         "core_instruction": "Check EVERY rule in the master checklist. No shortcuts. Score each. Only approve if overall >= 80%."
       },
       "variable_strings": {
-        "brief": {"source": "ContentWriter", "description": "The final brief"},
-        "design": {"source": "DesignDNA", "description": "Design concept"},
-        "audit": {"source": "ScreenAuditor", "description": "Page fill audit"},
-        "agent_rounds": {"source": "Tracer", "description": "Proof of agent debates"}
+        "brief": {
+          "source": "ContentWriter",
+          "description": "The final brief"
+        },
+        "design": {
+          "source": "DesignDNA",
+          "description": "Design concept"
+        },
+        "audit": {
+          "source": "ScreenAuditor",
+          "description": "Page fill audit"
+        },
+        "agent_rounds": {
+          "source": "Tracer",
+          "description": "Proof of agent debates"
+        }
       },
-      "outputs_to": ["LinkedInExpert"]
+      "outputs_to": [
+        "LinkedInExpert"
+      ]
     },
-
     "LinkedInExpert": {
       "name": "Herald",
       "role": "Crafts the LinkedIn post with Unicode formatting",
@@ -335,19 +493,25 @@
         "core_instruction": "Unicode bold/italic for headers. Hook in first 2 lines. 1200-1800 chars. Must feel like it came from a senior AI strategy partner."
       },
       "variable_strings": {
-        "brief": {"source": "ContentWriter", "description": "Brief content for post copy"},
-        "design_dna": {"source": "DesignDNA", "description": "Tone and mood to match"}
+        "brief": {
+          "source": "ContentWriter",
+          "description": "Brief content for post copy"
+        },
+        "design_dna": {
+          "source": "DesignDNA",
+          "description": "Tone and mood to match"
+        }
       },
-      "outputs_to": ["LinkedInPublisher"]
+      "outputs_to": [
+        "LinkedInPublisher"
+      ]
     }
   },
-
   "controls": {
     "autonomous": true,
-    "post_to_linkedin": true,
-    "max_pages": 10,
-    "min_pages": 2,
-    "dedup_threshold": 0.70,
+    "post_to_linkedin": false,
+    "content_pages": 3,
+    "dedup_threshold": 0.7,
     "validation_threshold": 80,
     "max_design_rounds": 3,
     "max_content_rounds": 3,
@@ -356,8 +520,6 @@
     "skip_post_if_extreme_sad": true,
     "force_content_type": null,
     "force_topic": null,
-    "force_theme": null,
-    "force_page_count": null,
-    "force_format": null
+    "force_theme": null
   }
 }

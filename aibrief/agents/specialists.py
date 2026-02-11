@@ -197,7 +197,7 @@ class ContentWriter(Agent):
     def __init__(self):
         super().__init__(
             name="Content Writer",
-            role="Synthesises perspectives into polished thought leadership",
+            role="Synthesises perspectives into polished poster content",
             model=config.MODEL_CONTENT_WRITER,
             system_prompt=(
                 "You are the ghostwriter for Bhasker Kumar — a globally recognised AI "
@@ -205,105 +205,69 @@ class ContentWriter(Agent):
                 "You write like a luxury brand writes copy: every word is intentional, "
                 "every sentence is crafted to feel premium and aspirational.\n\n"
                 f"{GUARDRAIL}\n\n"
-                "STYLE RULES — THIS IS A LUXURY KEYNOTE PRESENTATION:\n"
-                "- Each slide has EXACTLY ONE high-value point. Not 4-6 bullets. ONE.\n"
-                "- The point is a powerful statement (15-25 words) — the kind that "
-                "makes a CEO stop scrolling and think.\n"
-                "- Below the point: ONE insight (20-40 words) that supports or deepens it. "
-                "Concrete. Specific. With a number, name, or date.\n"
-                "- Big commanding titles on every slide\n"
-                "- Think luxury advertisement: every word earns its place\n"
+                "FORMAT: You create POSTER content — NOT slides, NOT documents.\n"
+                "Think: Nike poster, Apple keynote, Vogue cover, Porsche ad.\n\n"
+                "POSTER RULES:\n"
+                "- EXACTLY 3 content pages (+ 1 hero/cover = 4 total poster pages)\n"
+                "- Each page is ONE powerful visual statement\n"
+                "- MASSIVE words. 5-10 words per page for the hero statement\n"
+                "- One supporting line (10-15 words) beneath — that's it\n"
+                "- The WORDS are the design. Every word must stop someone scrolling\n"
+                "- No paragraphs. No bullet lists. No dense text. IMPACT.\n"
                 "- Quality over quantity. Less is more. One diamond, not a bag of pebbles.\n"
                 "- Use specific numbers, dates, names — precision is luxury\n"
                 "- Neutral tone — never negative about individuals. May critique ideas.\n"
                 "- Author is ALWAYS 'Bhasker Kumar'\n\n"
-                "STRICT GUARDRAIL: If you put more than 1 point on a slide, "
-                "the FinalValidator will REJECT it. One point. One insight. That's it.\n\n"
+                "PAGE TYPES (3 content pages from these):\n"
+                "  impact — bold hero statement + supporting line\n"
+                "  stat — MASSIVE hero number + tiny label + context\n"
+                "  quote — dramatic quote with attribution\n\n"
+                "STRICT GUARDRAIL: Maximum 10 words per hero statement. "
+                "Maximum 15 words per supporting line. LESS IS EVERYTHING.\n\n"
                 "Return JSON with:\n"
-                "  brief_title: string (compelling 5-8 word title)\n"
-                "  subtitle: string (one-line subtitle, punchy)\n"
-                "  author_name: string (ALWAYS 'Bhasker Kumar')\n"
-                "  author_title: string (e.g. 'Founder & Managing Partner, AI Advisory')\n"
-                "  pages: list of objects, each with:\n"
-                "    page_type: string (cover|executive_summary|the_news|historical|"
-                "economic|social|future|critical_take|takeaway)\n"
-                "    title: string (BIG slide title, 3-7 words, commanding)\n"
-                "    point: string (THE one high-value point for this slide. 15-25 words. "
-                "Powerful. The kind of statement a CEO would quote in a board meeting.)\n"
-                "    insight: string (ONE supporting insight. 20-40 words. Concrete, "
-                "specific, with a number/name/date. Deepens the point.)\n"
-                "    key_stat: string (optional — a big number/stat for visual emphasis, "
-                "e.g. '$4.2 Trillion' or '40% Faster')\n"
-                "    key_stat_label: string (what the stat means, 3-5 words)\n"
-                "    quote: string (pull quote, 12-20 words, memorable)\n"
-                "    quote_attribution: string (who said it)\n"
-                "    visual_suggestion: string (what visual to generate)\n"
+                "  brief_title: string (5-8 words, punchy)\n"
+                "  subtitle: string (one line)\n"
+                "  author_name: 'Bhasker Kumar'\n"
+                "  author_title: string\n"
+                "  pages: list of 4 objects (hero + 3 content), each with:\n"
+                "    page_type: 'hero' | 'impact' | 'stat' | 'quote'\n"
+                "    hero_statement: string (5-10 POWERFUL words)\n"
+                "    supporting_line: string (10-15 words)\n"
+                "    hero_number: string (for stat pages, e.g. '$4.2T')\n"
+                "    hero_label: string (for stat pages, 3-5 words)\n"
+                "    context_line: string (for stat pages, one sentence)\n"
+                "    quote: string (for quote pages, 12-20 words)\n"
+                "    attribution: string (who said it)\n"
+                "    visual_mood: string (mood for DALL-E image)\n"
             ),
         )
 
-    def synthesise(self, story: dict, perspectives: dict, editor_notes: dict = None) -> dict:
+    def synthesise(self, story: dict, perspectives: dict,
+                   editor_notes: dict = None) -> dict:
+        """Synthesise into poster format — 3 content pages."""
         ctx = {"story": story, "perspectives": perspectives}
         if editor_notes:
             ctx["editor_revision_notes"] = editor_notes
         return self.think(
-            "Synthesise all perspectives into a 8-10 SLIDE luxury keynote deck. "
-            "STRICT RULE: Each slide has EXACTLY ONE high-value point and ONE "
-            "supporting insight. NOT a list of bullets. ONE point per slide.\n\n"
-            "The point: 15-25 words. Powerful. CEO-quotable.\n"
-            "The insight: 20-40 words. Concrete. A number, name, or date.\n\n"
-            "Think: one diamond per slide, not a bag of pebbles.\n"
-            "Some slides may have a KEY STAT (big number) alongside the point.\n"
-            "Every slide needs a memorable pull quote.\n\n"
-            "Luxury brand keynote at Davos. Premium. Commanding. Aspirational.\n"
-            "Author is ALWAYS 'Bhasker Kumar'.",
-            context=ctx,
-            max_tokens=8000,
-        )
-
-    def synthesise_poster(self, story: dict, perspectives: dict,
-                          page_count: int = 4, editor_notes: dict = None) -> dict:
-        """Synthesise into a poster/banner format — bold, minimal, maximum impact."""
-        ctx = {"story": story, "perspectives": perspectives}
-        if editor_notes:
-            ctx["editor_revision_notes"] = editor_notes
-        return self.think(
-            f"CREATE A {page_count}-PAGE POSTER/BANNER — NOT slides.\n\n"
-            "THIS IS A COMPLETELY DIFFERENT FORMAT. Think: Nike poster, "
-            "Apple product launch, Vogue magazine cover, Porsche ad.\n\n"
-            "POSTER RULES:\n"
-            "- Each page is ONE powerful visual statement\n"
-            "- MASSIVE words. 5-10 words per page maximum for the hero statement\n"
-            "- One supporting line (10-15 words) beneath — that's it\n"
-            "- The WORDS are the design. Every word must stop someone scrolling\n"
-            "- No paragraphs. No bullet lists. No dense text. IMPACT.\n"
-            "- One stat page with a HERO NUMBER (e.g. '$127M', '40%', '2.3B')\n"
-            "- One powerful quote\n"
-            "- Closing page with a punchy call to action\n\n"
-            "Author is ALWAYS 'Bhasker Kumar'.\n\n"
-            "Return JSON with:\n"
-            "  brief_title: string (5-8 words, punchy)\n"
-            "  subtitle: string (one line)\n"
-            "  author_name: 'Bhasker Kumar'\n"
-            "  author_title: string\n"
-            "  pages: list of objects, each with:\n"
-            "    page_type: 'hero' | 'impact' | 'stat' | 'quote' | 'closing'\n"
-            "    hero_statement: string (5-10 POWERFUL words — the main visual text)\n"
-            "    supporting_line: string (10-15 words — tiny context beneath)\n"
-            "    hero_number: string (for stat pages only, e.g. '$4.2T')\n"
-            "    hero_label: string (for stat pages, 3-5 words)\n"
-            "    context_line: string (for stat pages, one sentence)\n"
-            "    quote: string (for quote pages, 12-20 words)\n"
-            "    attribution: string (who said it)\n"
-            "    closing_statement: string (for closing page)\n"
-            "    cta: string (call to action)\n"
-            "    visual_mood: string (mood for DALL-E image generation)\n\n"
-            f"EXACTLY {page_count} pages. First page is always 'hero'. "
-            f"Last page is always 'closing'.\n"
-            "Think like a creative director at a luxury ad agency. "
+            "CREATE A 4-PAGE POSTER (1 hero cover + 3 content pages).\n\n"
+            "This is a POSTER, not a document. Think: Nike, Apple, Vogue, Porsche.\n\n"
+            "RULES:\n"
+            "- Page 1: 'hero' (cover page — massive title)\n"
+            "- Pages 2-4: mix of 'impact', 'stat', 'quote'\n"
+            "  - At least 1 stat page with a HERO NUMBER\n"
+            "  - At least 1 powerful quote\n"
+            "  - MASSIVE words. 5-10 words per hero statement. MAX.\n"
+            "  - Supporting line: 10-15 words. That's it.\n\n"
+            "EXACTLY 4 pages. First is 'hero'. Author: 'Bhasker Kumar'.\n"
             "Every word earns its place. Less is everything.",
             context=ctx,
             max_tokens=4000,
         )
+
+    def synthesise_poster(self, story: dict, perspectives: dict,
+                          page_count: int = 4, editor_notes: dict = None) -> dict:
+        """Alias for synthesise — always poster format now."""
+        return self.synthesise(story, perspectives, editor_notes)
 
 
 # ═══════════════════════════════════════════════════════════════

@@ -37,11 +37,11 @@ if hasattr(sys.stdout, "reconfigure"):
 def print_banner():
     print("""
     ╔═════════════════════════════════════════════════════════╗
-    ║              A I   B R I E F   v 2 . 0                  ║
+    ║              A I   B R I E F   v 3 . 0                  ║
     ║   Autonomous AI Thought Leadership Publisher            ║
     ║                                                         ║
-    ║   World Pulse → Content Strategy → Design DNA           ║
-    ║   → Multi-Agent Debate → Luxury PDF → LinkedIn          ║
+    ║   POSTER + Agent Credits + Decision Architecture        ║
+    ║   12 Styles • 10 Fonts • 10 Palettes (from catalog)    ║
     ║                                                         ║
     ║   13 Phases • 20+ Agents • Full Run Tracer             ║
     ║   Gemini Flash + GPT-4o + DALL-E 3 + Pillow            ║

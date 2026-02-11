@@ -1,0 +1,164 @@
+2026-02-11 01:19:18,398 | INFO | ============================================================
+2026-02-11 01:19:18,398 | INFO | AI BRIEF SCHEDULER STARTED
+2026-02-11 01:19:18,398 | INFO |   Runs per day: 3
+2026-02-11 01:19:18,398 | INFO |   Quiet hours: 23:00 - 7:00
+2026-02-11 01:19:18,398 | INFO |   Log: C:\Users\conta\OneDrive\Projects\catfun\aibrief\scheduler.log
+2026-02-11 01:19:18,398 | INFO | ============================================================
+2026-02-11 01:19:18,468 | INFO | Today's schedule: runs in ['6.5h', '13.6h', '21.1h']
+2026-02-11 01:19:18,470 | INFO | Run 1/3: sleeping 6.5h (wake at 07:46)
+2026-02-11 01:24:24,471 | INFO | ============================================================
+2026-02-11 01:24:24,471 | INFO | AI BRIEF SCHEDULER STARTED
+2026-02-11 01:24:24,471 | INFO |   Runs per day: 3
+2026-02-11 01:24:24,471 | INFO |   Quiet hours: 23:00 - 7:00
+2026-02-11 01:24:24,471 | INFO |   Log: C:\Users\conta\OneDrive\Projects\catfun\aibrief\scheduler.log
+2026-02-11 01:24:24,471 | INFO | ============================================================
+2026-02-11 01:24:24,472 | INFO | Today's schedule: runs in ['7.3h', '13.5h', '21.3h']
+2026-02-11 01:24:24,472 | INFO | Run 1/3: sleeping 7.3h (wake at 08:41)
+2026-02-11 07:46:53,523 | INFO | Run 1/3: EXECUTING at 07:46:53
+2026-02-11 07:46:53,555 | INFO | ==================================================
+2026-02-11 07:46:53,555 | INFO | STARTING AI BRIEF PIPELINE
+2026-02-11 07:46:53,555 | INFO | ==================================================
+2026-02-11 07:54:48,047 | INFO |     ▸ Document title: AI: The New Olympic Game Changer
+2026-02-11 07:54:48,052 | INFO |   
+2026-02-11 07:54:48,052 | INFO |     [LinkedIn] Starting post...
+2026-02-11 07:54:48,053 | INFO |     [LinkedIn] Document title: AI: The New Olympic Game Changer
+2026-02-11 07:54:48,053 | INFO |     [LinkedIn] Uploading PDF (7013 KB)...
+2026-02-11 07:54:48,053 | INFO |     [LinkedIn] Document URN: urn:li:document:D4E10AQGVRFir9gDg5w
+2026-02-11 07:54:48,053 | INFO |     [LinkedIn] PDF uploaded successfully
+2026-02-11 07:54:48,053 | INFO |     [LinkedIn] Document post created: https://www.linkedin.com/feed/update/urn:li:ugcPost:7427243669579022336
+2026-02-11 07:54:48,053 | INFO |     [Dedup] Stored embedding for 'AI to Revolutionize Winter Olympics: Performance, ...'
+2026-02-11 07:54:48,053 | INFO |   
+2026-02-11 07:54:48,053 | INFO |     [Tracer] Saved: C:\Users\conta\OneDrive\Projects\catfun\aibrief\traces\run_20260211_074704.json
+2026-02-11 07:54:48,053 | INFO |     [Tracer] 15 agent calls, 7 debates, 460s total, $0.0000
+2026-02-11 07:54:48,054 | INFO |   
+2026-02-11 07:54:48,054 | INFO |   =================================================================
+2026-02-11 07:54:48,054 | INFO |     AUTONOMOUS RUN COMPLETE | 444s (7.4 min)
+2026-02-11 07:54:48,054 | INFO |     Story: AI to Revolutionize Winter Olympics: Performance, Viewing, and Operations Primed for Transformation
+2026-02-11 07:54:48,055 | INFO |     Content type: Bold Prediction
+2026-02-11 07:54:48,055 | INFO |     Format: POSTER
+2026-02-11 07:54:48,055 | INFO |     World mood: normal
+2026-02-11 07:54:48,055 | INFO |     Design: Olympic Vision Emergence
+2026-02-11 07:54:48,056 | INFO |     PDF: C:\Users\conta\OneDrive\Projects\catfun\aibrief\output\AI_Revolutionizes_Winter_Olympics_poster_run_20260211_074704.pdf
+2026-02-11 07:54:48,056 | INFO |     Validation: 82/100
+2026-02-11 07:54:48,056 | INFO |     Trace: C:\Users\conta\OneDrive\Projects\catfun\aibrief\traces\run_20260211_074704.json
+2026-02-11 07:54:48,056 | INFO |   =================================================================
+2026-02-11 07:54:48,056 | INFO |   
+2026-02-11 07:54:48,057 | INFO |     ──────────────────────────────────────────────────
+2026-02-11 07:54:48,057 | INFO |     ✓ PDF: C:\Users\conta\OneDrive\Projects\catfun\aibrief\output\AI_Revolutionizes_Winter_Olympics_poster_run_20260211_074704.pdf
+2026-02-11 07:54:48,057 | INFO |     ✓ LinkedIn: success
+2026-02-11 07:54:48,057 | INFO |     ✓ Trace: C:\Users\conta\OneDrive\Projects\catfun\aibrief\traces\run_20260211_074704.json
+2026-02-11 07:54:48,058 | INFO |     ──────────────────────────────────────────────────
+2026-02-11 07:54:48,058 | INFO | PIPELINE SUCCESS
+2026-02-11 07:54:48,110 | INFO | Run 1 done. Today: 1/3. Total: 1.
+2026-02-11 07:54:48,111 | INFO | Run 2/3: sleeping 7.0h (wake at 14:57)
+2026-02-11 08:41:45,548 | INFO | Run 1/3: EXECUTING at 08:41:45
+2026-02-11 08:41:45,562 | INFO | ==================================================
+2026-02-11 08:41:45,562 | INFO | STARTING AI BRIEF PIPELINE
+2026-02-11 08:41:45,562 | INFO | ==================================================
+2026-02-11 08:48:36,754 | INFO |     ▸ Document title: AI Partnership: Elevating Enterprise Excellence
+2026-02-11 08:48:36,754 | INFO |   
+2026-02-11 08:48:36,754 | INFO |     [LinkedIn] Starting post...
+2026-02-11 08:48:36,754 | INFO |     [LinkedIn] Document title: AI Partnership: Elevating Enterprise Excellence
+2026-02-11 08:48:36,754 | INFO |     [LinkedIn] Uploading PDF (6598 KB)...
+2026-02-11 08:48:36,754 | INFO |     [LinkedIn] Document URN: urn:li:document:D4E10AQE60LvDwxtt7g
+2026-02-11 08:48:36,754 | INFO |     [LinkedIn] PDF uploaded successfully
+2026-02-11 08:48:36,754 | INFO |     [LinkedIn] Document post created: https://www.linkedin.com/feed/update/urn:li:ugcPost:7427257234021134338
+2026-02-11 08:48:36,754 | INFO |     [Dedup] Stored embedding for 'Snowflake and OpenAI Partnership: AI as an Enterpr...'
+2026-02-11 08:48:36,754 | INFO |   
+2026-02-11 08:48:36,754 | INFO |     [Tracer] Saved: C:\Users\conta\OneDrive\Projects\catfun\aibrief\traces\run_20260211_084151.json
+2026-02-11 08:48:36,754 | INFO |     [Tracer] 15 agent calls, 7 debates, 404s total, $0.0000
+2026-02-11 08:48:36,754 | INFO |   
+2026-02-11 08:48:36,754 | INFO |   =================================================================
+2026-02-11 08:48:36,754 | INFO |     AUTONOMOUS RUN COMPLETE | 398s (6.6 min)
+2026-02-11 08:48:36,754 | INFO |     Story: Snowflake and OpenAI Partnership: AI as an Enterprise Productivity Multiplier, Not Just a Job Displacer
+2026-02-11 08:48:36,754 | INFO |     Content type: Calming Perspective
+2026-02-11 08:48:36,754 | INFO |     Format: POSTER
+2026-02-11 08:48:36,754 | INFO |     World mood: normal
+2026-02-11 08:48:36,754 | INFO |     Design: AI Renaissance Resilience
+2026-02-11 08:48:36,754 | INFO |     PDF: C:\Users\conta\OneDrive\Projects\catfun\aibrief\output\AI_Partnership_Elevating_Enterpris_poster_run_20260211_084151.pdf
+2026-02-11 08:48:36,754 | INFO |     Validation: 94/100
+2026-02-11 08:48:36,754 | INFO |     Trace: C:\Users\conta\OneDrive\Projects\catfun\aibrief\traces\run_20260211_084151.json
+2026-02-11 08:48:36,754 | INFO |   =================================================================
+2026-02-11 08:48:36,754 | INFO |   
+2026-02-11 08:48:36,760 | INFO |     ──────────────────────────────────────────────────
+2026-02-11 08:48:36,760 | INFO |     ✓ PDF: C:\Users\conta\OneDrive\Projects\catfun\aibrief\output\AI_Partnership_Elevating_Enterpris_poster_run_20260211_084151.pdf
+2026-02-11 08:48:36,760 | INFO |     ✓ LinkedIn: success
+2026-02-11 08:48:36,760 | INFO |     ✓ Trace: C:\Users\conta\OneDrive\Projects\catfun\aibrief\traces\run_20260211_084151.json
+2026-02-11 08:48:36,760 | INFO |     ──────────────────────────────────────────────────
+2026-02-11 08:48:36,760 | INFO | PIPELINE SUCCESS
+2026-02-11 08:48:36,762 | INFO | Run 1 done. Today: 2/3. Total: 2.
+2026-02-11 08:48:36,762 | INFO | Run 2/3: sleeping 6.1h (wake at 14:54)
+2026-02-11 14:54:21,835 | INFO | Run 2/3: EXECUTING at 14:54:21
+2026-02-11 14:54:21,835 | INFO | ==================================================
+2026-02-11 14:54:21,835 | INFO | STARTING AI BRIEF PIPELINE
+2026-02-11 14:54:21,835 | INFO | ==================================================
+2026-02-11 14:57:12,256 | INFO | Run 2/3: EXECUTING at 14:57:12
+2026-02-11 14:57:12,268 | INFO | ==================================================
+2026-02-11 14:57:12,268 | INFO | STARTING AI BRIEF PIPELINE
+2026-02-11 14:57:12,268 | INFO | ==================================================
+2026-02-11 15:01:10,585 | INFO |     ▸ Document title: AI Agents Transform Chip Design
+2026-02-11 15:01:10,585 | INFO |   
+2026-02-11 15:01:10,585 | INFO |     [LinkedIn] Starting post...
+2026-02-11 15:01:10,585 | INFO |     [LinkedIn] Document title: AI Agents Transform Chip Design
+2026-02-11 15:01:10,585 | INFO |     [LinkedIn] Uploading PDF (5944 KB)...
+2026-02-11 15:01:10,585 | INFO |     [LinkedIn] Document URN: urn:li:document:D4E10AQHax12IcEmIDA
+2026-02-11 15:01:10,585 | INFO |     [LinkedIn] PDF uploaded successfully
+2026-02-11 15:01:10,585 | INFO |     [LinkedIn] Document post created: https://www.linkedin.com/feed/update/urn:li:ugcPost:7427350992540659713
+2026-02-11 15:01:10,585 | INFO |     [Dedup] Stored embedding for 'AI Agents Revolutionize Chip Design, Promising Fas...'
+2026-02-11 15:01:10,585 | INFO |   
+2026-02-11 15:01:10,585 | INFO |     [Tracer] Saved: C:\Users\conta\OneDrive\Projects\catfun\aibrief\traces\run_20260211_145427.json
+2026-02-11 15:01:10,585 | INFO |     [Tracer] 15 agent calls, 7 debates, 402s total, $0.0000
+2026-02-11 15:01:10,585 | INFO |   
+2026-02-11 15:01:10,585 | INFO |   =================================================================
+2026-02-11 15:01:10,585 | INFO |     AUTONOMOUS RUN COMPLETE | 397s (6.6 min)
+2026-02-11 15:01:10,585 | INFO |     Story: AI Agents Revolutionize Chip Design, Promising Faster Innovation Cycles
+2026-02-11 15:01:10,601 | INFO |     Content type: Trend Roundup
+2026-02-11 15:01:10,601 | INFO |     Format: SLIDES
+2026-02-11 15:01:10,601 | INFO |     World mood: normal
+2026-02-11 15:01:10,601 | INFO |     Design: Resilient Elegance
+2026-02-11 15:01:10,601 | INFO |     PDF: C:\Users\conta\OneDrive\Projects\catfun\aibrief\output\AI_Agents_Transform_Chip_Design_slides_run_20260211_145427.pdf
+2026-02-11 15:01:10,601 | INFO |     Validation: 88.88888888888889/100
+2026-02-11 15:01:10,601 | INFO |     Trace: C:\Users\conta\OneDrive\Projects\catfun\aibrief\traces\run_20260211_145427.json
+2026-02-11 15:01:10,601 | INFO |   =================================================================
+2026-02-11 15:01:10,601 | INFO |   
+2026-02-11 15:01:10,601 | INFO |     ──────────────────────────────────────────────────
+2026-02-11 15:01:10,601 | INFO |     ✓ PDF: C:\Users\conta\OneDrive\Projects\catfun\aibrief\output\AI_Agents_Transform_Chip_Design_slides_run_20260211_145427.pdf
+2026-02-11 15:01:10,601 | INFO |     ✓ LinkedIn: success
+2026-02-11 15:01:10,601 | INFO |     ✓ Trace: C:\Users\conta\OneDrive\Projects\catfun\aibrief\traces\run_20260211_145427.json
+2026-02-11 15:01:10,601 | INFO |     ──────────────────────────────────────────────────
+2026-02-11 15:01:10,601 | INFO | PIPELINE SUCCESS
+2026-02-11 15:01:10,635 | INFO | Run 2 done. Today: 3/3. Total: 3.
+2026-02-11 15:01:10,636 | INFO | Run 3/3: sleeping 7.7h (wake at 22:40)
+2026-02-11 15:06:43,981 | INFO |     ▸ Document title: Genie: Transforming Images into Interactive Worlds
+2026-02-11 15:06:43,981 | INFO |   
+2026-02-11 15:06:43,981 | INFO |     [LinkedIn] Starting post...
+2026-02-11 15:06:43,981 | INFO |     [LinkedIn] Document title: Genie: Transforming Images into Interactive Worlds
+2026-02-11 15:06:43,981 | INFO |     [LinkedIn] Uploading PDF (9342 KB)...
+2026-02-11 15:06:43,981 | INFO |     [LinkedIn] Document URN: urn:li:document:D4E10AQFAZu7x7tEC-A
+2026-02-11 15:06:43,981 | INFO |     [LinkedIn] PDF uploaded successfully
+2026-02-11 15:06:43,981 | INFO |     [LinkedIn] Document post created: https://www.linkedin.com/feed/update/urn:li:ugcPost:7427352389445423104
+2026-02-11 15:06:43,981 | INFO |     [Dedup] Stored embedding for 'Google DeepMind's Genie: Turning Images into Inter...'
+2026-02-11 15:06:43,981 | INFO |   
+2026-02-11 15:06:43,981 | INFO |     [Tracer] Saved: C:\Users\conta\OneDrive\Projects\catfun\aibrief\traces\run_20260211_145715.json
+2026-02-11 15:06:43,981 | INFO |     [Tracer] 17 agent calls, 7 debates, 567s total, $0.0000
+2026-02-11 15:06:43,981 | INFO |   
+2026-02-11 15:06:43,981 | INFO |   =================================================================
+2026-02-11 15:06:43,981 | INFO |     AUTONOMOUS RUN COMPLETE | 562s (9.4 min)
+2026-02-11 15:06:43,991 | INFO |     Story: Google DeepMind's Genie: Turning Images into Interactive AI Worlds
+2026-02-11 15:06:43,991 | INFO |     Content type: Trend Roundup
+2026-02-11 15:06:43,991 | INFO |     Format: SLIDES
+2026-02-11 15:06:43,991 | INFO |     World mood: normal
+2026-02-11 15:06:43,991 | INFO |     Design: Genie's Vibrant Innovation
+2026-02-11 15:06:43,991 | INFO |     PDF: C:\Users\conta\OneDrive\Projects\catfun\aibrief\output\Genie_The_Dawn_of_Interactive_AI_W_slides_run_20260211_145715.pdf
+2026-02-11 15:06:43,991 | INFO |     Validation: 86.11/100
+2026-02-11 15:06:43,991 | INFO |     Trace: C:\Users\conta\OneDrive\Projects\catfun\aibrief\traces\run_20260211_145715.json
+2026-02-11 15:06:43,991 | INFO |   =================================================================
+2026-02-11 15:06:43,991 | INFO |   
+2026-02-11 15:06:43,991 | INFO |     ──────────────────────────────────────────────────
+2026-02-11 15:06:43,991 | INFO |     ✓ PDF: C:\Users\conta\OneDrive\Projects\catfun\aibrief\output\Genie_The_Dawn_of_Interactive_AI_W_slides_run_20260211_145715.pdf
+2026-02-11 15:06:43,991 | INFO |     ✓ LinkedIn: success
+2026-02-11 15:06:43,991 | INFO |     ✓ Trace: C:\Users\conta\OneDrive\Projects\catfun\aibrief\traces\run_20260211_145715.json
+2026-02-11 15:06:43,991 | INFO |     ──────────────────────────────────────────────────
+2026-02-11 15:06:43,991 | INFO | PIPELINE SUCCESS
+2026-02-11 15:06:43,991 | INFO | Run 2 done. Today: 4/3. Total: 4.
+2026-02-11 15:06:43,991 | INFO | Run 3/3: sleeping 7.3h (wake at 22:22)

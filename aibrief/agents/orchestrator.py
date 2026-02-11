@@ -3,19 +3,24 @@ Design DNA, multi-agent debate, and complete run tracing.
 
 Architecture:
   Phase 0:  World Pulse → global sentiment scan (Gemini + Google Search)
-  Phase 1:  Content Strategy → choose content type + length (GPT-4o)
+  Phase 1:  Content Strategy → choose content type + tone (GPT-4o)
   Phase 2:  Topic Discovery → find topic + semantic dedup (Gemini Flash)
-  Phase 3:  Design DNA → visual identity + debate (GPT-4o)
+  Phase 3:  Design DNA → pick style/palette/font from catalog + debate (GPT-4o)
   Phase 4:  Analyst Pairs → 4× preparer/reviewer argue (Gemini Flash + GPT-4o)
   Phase 5:  Round Table → cross-agent challenges
   Phase 6:  Editorial Oversight → editor reviews all perspectives (GPT-4o)
-  Phase 7:  Content Synthesis → writer + copy reviewer argue (GPT-4o)
+  Phase 7:  Content Synthesis → poster content + copy reviewer argue (GPT-4o)
   Phase 8:  Neutrality Check → ethical guardrail enforcement (GPT-4o)
   Phase 9:  Visuals → DALL-E images + Pillow infographics
-  Phase 10: PDF → luxury landscape slide deck
+  Phase 10: PDF → poster + agent credits + decision architecture mind map
   Phase 11: Screen Audit → page fill golden ratio check (GPT-4o)
   Phase 12: Final Validation → 37 master checkpoints (GPT-4o)
   Phase 13: LinkedIn → post with dynamic catchy document title
+
+OUTPUT is ALWAYS poster format:
+  Pages 1-4: Poster (cover + 3 content)
+  Pages 5-6: Agent credits (all agents, roles, mandates)
+  Page 7:    Decision architecture mind map (pipeline flow)
 
 Every phase is TRACED: fixed inputs (from config) and variable inputs
 (from other agents) are recorded with full source attribution.
@@ -87,15 +92,14 @@ class CopyReviewer(Agent):
                 "You are the creative director at a luxury brand agency (LVMH level). "
                 "You review copy with the standards of Hermès editorial campaigns. "
                 "Every word must earn its place. Every sentence must feel premium.\n\n"
-                "REVIEW CRITERIA:\n"
-                "1. Does each slide have EXACTLY ONE point? NOT a list of bullets. ONE.\n"
-                "2. Is the point high-value? Would a CEO quote it in a board meeting?\n"
-                "3. Is there exactly ONE supporting insight with a concrete number/name/date?\n"
+                "REVIEW CRITERIA (POSTER FORMAT):\n"
+                "1. Does each page have ONE hero statement of 5-10 words? NOT a paragraph.\n"
+                "2. Is the hero statement powerful enough to stop a CEO scrolling?\n"
+                "3. Is the supporting line max 15 words and adds real value?\n"
                 "4. Does it read like luxury advertising — not a textbook?\n"
-                "5. Would a CEO frame this on their wall?\n"
-                "6. Does every slide have a compelling pull quote?\n\n"
-                "STRICT GUARDRAIL: Any slide with more than 1 point or a list of "
-                "4-6 bullets MUST be rejected. One point. One insight. That's the rule.\n\n"
+                "5. Would a CEO frame this on their wall?\n\n"
+                "STRICT GUARDRAIL: Any page with more than 10 words in the hero "
+                "statement MUST be rejected. This is a POSTER, not a document.\n\n"
                 "Return JSON:\n"
                 "{\n"
                 "  \"overall_score\": number (1-10),\n"
@@ -129,7 +133,8 @@ class DesignReviewer(Agent):
                 "3. GOLDEN RATIO — Mathematically harmonious proportions?\n"
                 "4. TYPOGRAPHY — Clear hierarchy (display, body, caption)?\n"
                 "5. UNIQUENESS — Surprising and fresh?\n"
-                "6. BACKGROUNDS — Rich textures, never plain white?\n\n"
+                "6. BACKGROUNDS — Rich textures, never plain white?\n"
+                "7. CATALOG COMPLIANCE — Did the agent pick from the catalog?\n\n"
                 "Return JSON:\n"
                 "{\n"
                 "  \"overall_score\": number (1-10),\n"
@@ -154,16 +159,15 @@ class ScreenRealEstateAgent(Agent):
                 "You are a senior UX designer who audits page layouts for luxury brands. "
                 "Your job is to ensure every page of a PDF uses space according to "
                 "design psychology principles.\n\n"
-                "GOLDEN RULE: A luxury page should be 55-65% filled with content/visuals "
-                "and 35-45% breathing room. NEVER more than 45% empty. NEVER more than "
-                "70% filled.\n\n"
+                "GOLDEN RULE (POSTER FORMAT): A poster page should be 55-65% filled "
+                "with content/visuals and 35-45% breathing room. NEVER more than 45% "
+                "empty. NEVER more than 70% filled.\n\n"
                 "DESIGN PSYCHOLOGY PRINCIPLES:\n"
                 "- Golden Ratio (1.618): content zones should relate by this ratio\n"
                 "- Rule of Thirds: key elements at intersection points\n"
-                "- Z-pattern reading flow\n"
-                "- Visual weight: images/dark blocks anchor the page\n"
-                "- Typography hierarchy: 3 sizes create order and rhythm\n"
-                "- Color panels/backgrounds eliminate dead white space\n\n"
+                "- Visual weight: massive typography anchors the page\n"
+                "- Whitespace IS design in poster format — it's intentional\n"
+                "- Style decorations fill the background — no dead space\n\n"
                 "Return JSON:\n"
                 "{\n"
                 "  \"pages\": [{\"page_number\": number, \"estimated_fill_pct\": number, "
@@ -226,6 +230,39 @@ class AutonomousOrchestrator:
             return json.loads(cfg_path.read_text(encoding="utf-8"))
         return {"mode": "autonomous", "controls": {}}
 
+    def _get_agents_info(self) -> list[dict]:
+        """Extract all agents from config for the credits section."""
+        agents = []
+        for agent_name, data in self.cfg.get("agents", {}).items():
+            agents.append({
+                "name": agent_name,
+                "codename": data.get("name", ""),
+                "role": data.get("role", ""),
+                "mandate": data.get("fixed_strings", {}).get(
+                    "core_instruction", ""),
+            })
+        return agents
+
+    def _get_tracer_flow(self, pulse, strategy, design, validation,
+                         elapsed) -> dict:
+        """Build tracer flow data for the mind map."""
+        return {
+            "entries": self.tracer.entries,
+            "run_id": self.tracer.run_id,
+            "agent_flow": self.tracer._build_flow_summary(),
+            "total_duration": elapsed,
+            "total_agents": len([e for e in self.tracer.entries
+                                 if e.get("phase") != "DEBATE"]),
+            "total_debates": len([e for e in self.tracer.entries
+                                  if e.get("phase") == "DEBATE"]),
+            "key_outputs": {
+                "world_mood": pulse.get("mood", "normal"),
+                "content_type": strategy.get("content_type", ""),
+                "design_name": design.get("design_name", ""),
+                "validation_score": validation.get("total_score", 0),
+            },
+        }
+
     # ═══════════════════════════════════════════════════════════
     #  DEBATE ENGINE (reusable for any preparer/reviewer pair)
     # ═══════════════════════════════════════════════════════════
@@ -252,11 +289,11 @@ class AutonomousOrchestrator:
                   f"approved={approved}, demands={len(demands)}")
 
             if approved and score >= self.MIN_SCORE:
-                print(f"    ✓ {label} APPROVED after {rnd} round(s)")
+                print(f"    \u2713 {label} APPROVED after {rnd} round(s)")
                 break
             if rnd < self.MAX_ROUNDS:
                 work = preparer.respond_to_feedback(work, review)
-                print(f"    → {preparer.name} revised")
+                print(f"    \u2192 {preparer.name} revised")
 
         self.tracer.log_debate(
             f"{preparer.name} vs {reviewer.name} [{label}]", rounds)
@@ -289,12 +326,12 @@ class AutonomousOrchestrator:
         return pulse
 
     # ═══════════════════════════════════════════════════════════
-    #  PHASE 1: CONTENT STRATEGY + FORMAT DECISION
+    #  PHASE 1: CONTENT STRATEGY
     # ═══════════════════════════════════════════════════════════
 
     def _phase_content_strategy(self, pulse: dict) -> dict:
         print("\n" + "=" * 65)
-        print("  PHASE 1: CONTENT STRATEGY + FORMAT (Marcus)")
+        print("  PHASE 1: CONTENT STRATEGY (Marcus)")
         print("=" * 65)
 
         cfg_agent = self.cfg.get("agents", {}).get("ContentStrategist", {})
@@ -317,23 +354,8 @@ class AutonomousOrchestrator:
             },
         )
 
-        # Get recent content types from post log to ensure variety
         recent = self._get_recent_content_types()
         strategy = self.content_strategist.strategize(pulse, recent)
-
-        # FORMAT DECISION: config override > agent choice > default
-        force_fmt = self.controls.get("force_format")
-        if force_fmt and force_fmt in ("slides", "poster"):
-            strategy["output_format"] = force_fmt
-            strategy["format_reasoning"] = f"Override from config: force_format={force_fmt}"
-            print(f"  [Format] OVERRIDE from config → {force_fmt}")
-        else:
-            fmt = strategy.get("output_format", "slides")
-            if fmt not in ("slides", "poster"):
-                fmt = "slides"
-            strategy["output_format"] = fmt
-            print(f"  [Format] Agent chose → {fmt} "
-                  f"({strategy.get('format_reasoning', 'default')})")
 
         self.tracer.end_phase(strategy)
         return strategy
@@ -416,23 +438,23 @@ class AutonomousOrchestrator:
             self.tracer.end_phase(candidate)
 
             headline = candidate.get("headline", "?")
-            print(f"  ▸ Candidate: {headline}")
+            print(f"  \u25b8 Candidate: {headline}")
 
             is_dup, similarity, matched = is_duplicate(candidate)
             if is_dup:
-                print(f"  ✗ BLOCKED: {similarity:.0%} similar to '{matched}'")
+                print(f"  \u2717 BLOCKED: {similarity:.0%} similar to '{matched}'")
                 excluded.append(headline)
                 continue
             else:
-                print(f"  ✓ UNIQUE: max similarity {similarity:.0%}")
+                print(f"  \u2713 UNIQUE: max similarity {similarity:.0%}")
                 story = candidate
                 break
 
         if story is None:
-            print("  ⚠ All attempts matched. Using last candidate.")
+            print("  \u26a0 All attempts matched. Using last candidate.")
             story = candidate
 
-        print(f"\n  ▸ Final topic: {story.get('headline', '?')}")
+        print(f"\n  \u25b8 Final topic: {story.get('headline', '?')}")
         return story
 
     # ═══════════════════════════════════════════════════════════
@@ -453,7 +475,7 @@ class AutonomousOrchestrator:
             model=config.MODEL_DESIGN_DNA,
             fixed_inputs={
                 "core_instruction": cfg_agent.get("fixed_strings", {}).get(
-                    "core_instruction", "Create visual identity"),
+                    "core_instruction", "Create visual identity from catalog"),
                 "available_themes": cfg_agent.get("fixed_strings", {}).get(
                     "available_themes", []),
             },
@@ -477,11 +499,11 @@ class AutonomousOrchestrator:
             self.design_dna, self.design_reviewer, design,
             "visual_design", {"story": story, "world_pulse": pulse})
 
-        print(f"  ▸ Design: {design.get('design_name', '?')}")
-        print(f"  ▸ Theme: {design.get('theme', '?')}")
-        print(f"  ▸ Palette: {design.get('primary_color', '?')} / "
-              f"{design.get('accent_color', '?')}")
-        print(f"  ▸ Image key: {design.get('image_generation_key', '?')[:60]}")
+        print(f"  \u25b8 Design: {design.get('design_name', '?')}")
+        print(f"  \u25b8 Style: {design.get('style_id', '?')}")
+        print(f"  \u25b8 Palette: {design.get('palette_id', '?')}")
+        print(f"  \u25b8 Font: {design.get('font_id', '?')}")
+        print(f"  \u25b8 Image key: {design.get('image_generation_key', '?')[:60]}")
         return design
 
     # ═══════════════════════════════════════════════════════════
@@ -490,7 +512,7 @@ class AutonomousOrchestrator:
 
     def _phase_analyst_pairs(self, story: dict, strategy: dict) -> dict:
         print("\n" + "=" * 65)
-        print("  PHASE 4: ANALYST PAIRS (Prepare → Review → Argue)")
+        print("  PHASE 4: ANALYST PAIRS (Prepare \u2192 Review \u2192 Argue)")
         print("=" * 65)
 
         content_type = strategy.get("content_type", "")
@@ -536,7 +558,7 @@ class AutonomousOrchestrator:
 
     def _phase_round_table(self, story: dict, perspectives: dict) -> dict:
         print("\n" + "=" * 65)
-        print("  PHASE 5: ROUND TABLE — Agents challenge each other")
+        print("  PHASE 5: ROUND TABLE \u2014 Agents challenge each other")
         print("=" * 65)
 
         challenges = {}
@@ -558,14 +580,14 @@ class AutonomousOrchestrator:
                     f"{target_name}_work": perspectives.get(target_key, {}),
                 },
             )
-            challenges[f"{challenger.name}→{target_name}"] = challenge
+            challenges[f"{challenger.name}\u2192{target_name}"] = challenge
             summary = str(challenge)[:80]
-            print(f"    {challenger.name} → {target_name}: {summary}")
+            print(f"    {challenger.name} \u2192 {target_name}: {summary}")
 
         # Each agent incorporates incoming challenges
         for challenger, own_key, target_key, target_name in pairs:
             incoming = {k: v for k, v in challenges.items()
-                        if k.endswith(f"→{challenger.name.split()[0]}")}
+                        if k.endswith(f"\u2192{challenger.name.split()[0]}")}
             if incoming:
                 perspectives[own_key] = challenger.respond_to_feedback(
                     perspectives[own_key], {"cross_challenges": incoming})
@@ -603,7 +625,7 @@ class AutonomousOrchestrator:
         self.tracer.end_phase(review)
 
         score = review.get("quality_score", "?")
-        print(f"  ▸ Editor score: {score}/10")
+        print(f"  \u25b8 Editor score: {score}/10")
 
         if not review.get("ready_for_synthesis", False):
             feedback = review.get("feedback_per_agent", {})
@@ -618,22 +640,18 @@ class AutonomousOrchestrator:
                 if agent_fb and agent_fb.get("score", 10) < 8:
                     perspectives[key] = agent.respond_to_feedback(
                         perspectives[key], agent_fb)
-                    print(f"  ▸ {agent_name} revised per editor demands")
+                    print(f"  \u25b8 {agent_name} revised per editor demands")
 
     # ═══════════════════════════════════════════════════════════
-    #  PHASE 7: CONTENT SYNTHESIS + COPY REVIEW
+    #  PHASE 7: CONTENT SYNTHESIS (POSTER) + COPY REVIEW
     # ═══════════════════════════════════════════════════════════
 
     def _phase_synthesis(self, story: dict, perspectives: dict,
                          strategy: dict, design: dict) -> dict:
-        fmt = strategy.get("output_format", "slides")
-        fmt_label = "POSTER" if fmt == "poster" else "SLIDES"
-
         print("\n" + "=" * 65)
-        print(f"  PHASE 7: CONTENT SYNTHESIS [{fmt_label}] (Quill + Sterling argue)")
+        print("  PHASE 7: CONTENT SYNTHESIS [POSTER] (Quill + Sterling argue)")
         print("=" * 65)
 
-        page_count = strategy.get("page_count", 8)
         content_type = strategy.get("content_type", "")
 
         self.tracer.begin_phase(
@@ -642,8 +660,8 @@ class AutonomousOrchestrator:
             agent_codename="Quill",
             model=config.MODEL_CONTENT_WRITER,
             fixed_inputs={
-                "core_instruction": f"Synthesize into luxury {fmt_label}",
-                "output_format": fmt,
+                "core_instruction": "Synthesise into luxury POSTER (3 content pages)",
+                "output_format": "poster",
                 "guardrail": GUARDRAIL[:100],
                 "anchor_filter": self.cfg.get("brand_identity", {}).get(
                     "fixed", {}).get("anchor_filter", "")[:100],
@@ -658,20 +676,11 @@ class AutonomousOrchestrator:
                 "content_type": self.tracer.var_ref(
                     "ContentStrategist", "Marcus", "ContentStrategy",
                     content_type),
-                "page_count": self.tracer.var_ref(
-                    "ContentStrategist", "Marcus", "ContentStrategy",
-                    page_count),
             },
         )
 
-        # Route to poster or slide synthesis
-        if fmt == "poster":
-            poster_pages = min(page_count, 5)  # posters max 5 pages
-            brief = self.writer.synthesise_poster(
-                story, perspectives, page_count=poster_pages)
-        else:
-            brief = self.writer.synthesise(story, perspectives)
-
+        # Always poster format now
+        brief = self.writer.synthesise(story, perspectives)
         self.tracer.end_phase(brief)
 
         # Copy review debate
@@ -679,7 +688,7 @@ class AutonomousOrchestrator:
                             "content_brief", story)
 
         pages = brief.get("pages", [])
-        print(f"  ▸ Brief [{fmt_label}]: {brief.get('brief_title', '?')}, "
+        print(f"  \u25b8 Brief [POSTER]: {brief.get('brief_title', '?')}, "
               f"{len(pages)} pages")
         return brief
 
@@ -710,14 +719,14 @@ class AutonomousOrchestrator:
         self.tracer.end_phase(review)
 
         approved = review.get("approved", False)
-        print(f"  ▸ Approved: {approved}, "
+        print(f"  \u25b8 Approved: {approved}, "
               f"tone: {review.get('tone_score', '?')}/10")
 
         if not approved:
             editor_fix = self.editor.review_final_brief(brief, review)
             brief = self.writer.synthesise(story, perspectives,
                                            editor_notes=editor_fix)
-            print(f"  ▸ Revised after neutrality feedback")
+            print(f"  \u25b8 Revised after neutrality feedback")
 
         return brief
 
@@ -756,31 +765,37 @@ class AutonomousOrchestrator:
         return visuals
 
     # ═══════════════════════════════════════════════════════════
-    #  PHASE 10: PDF
+    #  PHASE 10: PDF (POSTER + AGENT CREDITS + MIND MAP)
     # ═══════════════════════════════════════════════════════════
 
     def _phase_pdf(self, brief: dict, design: dict, story: dict,
-                   visuals: dict, fmt: str = "slides") -> str:
-        fmt_label = "POSTER" if fmt == "poster" else "SLIDE DECK"
+                   visuals: dict, pulse: dict, strategy: dict,
+                   validation: dict, elapsed: float) -> str:
         print("\n" + "=" * 65)
-        print(f"  PHASE 10: LUXURY {fmt_label} PDF")
+        print("  PHASE 10: LUXURY POSTER PDF + AGENT CREDITS + MIND MAP")
         print("=" * 65)
 
         import re
         slug = brief.get("brief_title", "AI_Brief")[:35]
         slug = re.sub(r'[<>:"/\\|?*]', '', slug).replace(" ", "_").strip("_")
-        suffix = "poster" if fmt == "poster" else "slides"
         output_path = str(
-            config.OUTPUT_DIR / f"{slug}_{suffix}_{self.tracer.run_id}.pdf")
+            config.OUTPUT_DIR / f"{slug}_poster_{self.tracer.run_id}.pdf")
 
-        if fmt == "poster":
-            from aibrief.pipeline.poster_gen import generate_poster
-            pdf_path = generate_poster(brief, design, story, visuals=visuals,
-                                       output_path=output_path)
-        else:
-            from aibrief.pipeline.pdf_gen import generate_pdf
-            pdf_path = generate_pdf(brief, design, story, visuals=visuals,
-                                    output_path=output_path)
+        # Collect agent info for credits section
+        agents_info = self._get_agents_info()
+
+        # Collect tracer flow for mind map
+        tracer_flow = self._get_tracer_flow(
+            pulse, strategy, design, validation, elapsed)
+
+        from aibrief.pipeline.poster_gen import generate_poster
+        pdf_path = generate_poster(
+            brief, design, story,
+            visuals=visuals,
+            agents_info=agents_info,
+            tracer_flow=tracer_flow,
+            output_path=output_path,
+        )
         return pdf_path
 
     # ═══════════════════════════════════════════════════════════
@@ -811,26 +826,27 @@ class AutonomousOrchestrator:
             pages_info.append({
                 "page_number": i + 1,
                 "page_type": page.get("page_type", "?"),
-                "title": page.get("title", "?"),
-                "has_point": bool(page.get("point")),
-                "has_insight": bool(page.get("insight")),
-                "has_key_stat": bool(page.get("key_stat")),
+                "has_hero_statement": bool(page.get("hero_statement")),
+                "has_supporting_line": bool(page.get("supporting_line")),
+                "has_hero_number": bool(page.get("hero_number")),
                 "has_quote": bool(page.get("quote")),
                 "has_visual": page.get("page_type", "") in visuals,
-                "has_artistic_background": True,
-                "format": "landscape slide",
+                "has_style_decoration": True,
+                "format": "portrait poster",
             })
 
         audit = self.screen_auditor.think(
-            "Audit this SLIDE DECK PDF. Each slide is landscape (11x8.5). "
-            "Every slide has: artistic background + big header + content + "
-            "visual. Check that no slide feels empty.",
+            "Audit this POSTER PDF. Each page is portrait (8.5x11). "
+            "Poster pages have: style decoration background + massive "
+            "typography + one statement. Check that no page feels empty "
+            "but also not overcrowded — poster style uses whitespace "
+            "intentionally.",
             context={"pages": pages_info, "design": design},
         )
         self.tracer.end_phase(audit)
 
         approved = audit.get("approved", False)
-        print(f"  ▸ Audit: {'PASS' if approved else 'NEEDS ATTENTION'}")
+        print(f"  \u25b8 Audit: {'PASS' if approved else 'NEEDS ATTENTION'}")
         return audit
 
     # ═══════════════════════════════════════════════════════════
@@ -840,10 +856,9 @@ class AutonomousOrchestrator:
     def _phase_validation(self, brief: dict, design: dict, story: dict,
                           visuals: dict, audit: dict) -> dict:
         print("\n" + "=" * 65)
-        print("  PHASE 12: FINAL VALIDATION — 37 master checkpoints (Sentinel)")
+        print("  PHASE 12: FINAL VALIDATION \u2014 37 master checkpoints (Sentinel)")
         print("=" * 65)
 
-        # Collect agent debate proof from tracer
         debates = [e for e in self.tracer.entries if e.get("phase") == "DEBATE"]
         agent_rounds = {
             d["pair"]: {"rounds": d.get("total_rounds", 0)}
@@ -880,11 +895,11 @@ class AutonomousOrchestrator:
 
         total = validation.get("total_score", 0)
         approved = validation.get("approved", False)
-        print(f"  ▸ Score: {total}/100, Approved: {approved}")
+        print(f"  \u25b8 Score: {total}/100, Approved: {approved}")
 
         if validation.get("critical_failures"):
             for cf in validation["critical_failures"][:5]:
-                print(f"    ✗ {cf}")
+                print(f"    \u2717 {cf}")
 
         return validation
 
@@ -898,7 +913,6 @@ class AutonomousOrchestrator:
         print("  PHASE 13: LINKEDIN POST (Herald)")
         print("=" * 65)
 
-        # Generate post copy + dynamic document title
         self.tracer.begin_phase(
             phase="LinkedInCopy",
             agent_name="LinkedInExpert",
@@ -921,23 +935,19 @@ class AutonomousOrchestrator:
         post_text = li_post.get("post_text", "")
         doc_title = li_post.get("document_title", "")
         if not doc_title:
-            # Fallback: use brief title as document title
             doc_title = brief.get("brief_title", "AI Thought Leadership Brief")
-        print(f"  ▸ Post: {len(post_text)} chars")
-        print(f"  ▸ Document title: {doc_title}")
+        print(f"  \u25b8 Post: {len(post_text)} chars")
+        print(f"  \u25b8 Document title: {doc_title}")
 
-        # Post to LinkedIn
         if self.controls.get("post_to_linkedin", True):
             from aibrief.pipeline.linkedin import post_brief
             li_result = post_brief(
                 pdf_path, post_text, story=story,
                 document_title=doc_title)
-
-            # Log to post_log.json
             self._log_post(story, brief, li_post, li_result, design)
             return li_result
         else:
-            print("  ▸ LinkedIn posting disabled in config")
+            print("  \u25b8 LinkedIn posting disabled in config")
             return {"status": "skipped"}
 
     def _log_post(self, story, brief, li_post, li_result, design):
@@ -959,7 +969,7 @@ class AutonomousOrchestrator:
             "content_type": self.tracer.agent_outputs.get(
                 "ContentStrategist", {}).get("content_type", ""),
             "design_name": design.get("design_name", "?"),
-            "design_theme": design.get("theme", "?"),
+            "design_theme": design.get("style_id", "?"),
             "world_mood": self.tracer.agent_outputs.get(
                 "WorldPulseScanner", {}).get("mood", ""),
             "date": _time.strftime("%Y-%m-%d %H:%M"),
@@ -989,7 +999,7 @@ class AutonomousOrchestrator:
         # Check for "Silent" mode
         ct = strategy.get("content_type", "")
         if "silent" in ct.lower():
-            print("\n  ⚠ World sentiment too sensitive. Not posting today.")
+            print("\n  \u26a0 World sentiment too sensitive. Not posting today.")
             self.tracer.save({"decision": "SILENT", "reason": ct})
             return {"decision": "SILENT"}
 
@@ -1017,15 +1027,16 @@ class AutonomousOrchestrator:
         # ── Phase 9: Visuals ──
         visuals = self._phase_visuals(brief, story, design, perspectives)
 
-        # ── Phase 10: PDF (route to poster or slides) ──
-        fmt = strategy.get("output_format", "slides")
-        pdf_path = self._phase_pdf(brief, design, story, visuals, fmt=fmt)
-
-        # ── Phase 11: Screen Audit ──
+        # ── Phase 11: Screen Audit (before PDF to inform) ──
         audit = self._phase_screen_audit(brief, design, visuals)
 
         # ── Phase 12: Final Validation ──
         validation = self._phase_validation(brief, design, story, visuals, audit)
+
+        # ── Phase 10: PDF (poster + agent credits + mind map) ──
+        elapsed = time.time() - t0
+        pdf_path = self._phase_pdf(brief, design, story, visuals,
+                                   pulse, strategy, validation, elapsed)
 
         # ── Phase 13: LinkedIn ──
         li_result = self._phase_linkedin(brief, story, design, pdf_path)
@@ -1039,6 +1050,9 @@ class AutonomousOrchestrator:
             "content_type": strategy.get("content_type"),
             "world_mood": pulse.get("mood"),
             "design_name": design.get("design_name"),
+            "style_id": design.get("style_id"),
+            "palette_id": design.get("palette_id"),
+            "font_id": design.get("font_id"),
             "headline": story.get("headline"),
         })
 
@@ -1046,7 +1060,9 @@ class AutonomousOrchestrator:
         print(f"  AUTONOMOUS RUN COMPLETE | {elapsed:.0f}s ({elapsed/60:.1f} min)")
         print(f"  Story: {story.get('headline', '?')}")
         print(f"  Content type: {strategy.get('content_type', '?')}")
-        print(f"  Format: {strategy.get('output_format', 'slides').upper()}")
+        print(f"  Format: POSTER (always)")
+        print(f"  Style: {design.get('style_id', '?')}")
+        print(f"  Palette: {design.get('palette_id', '?')}")
         print(f"  World mood: {pulse.get('mood', '?')}")
         print(f"  Design: {design.get('design_name', '?')}")
         print(f"  PDF: {pdf_path}")
