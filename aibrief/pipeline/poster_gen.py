@@ -21,7 +21,7 @@ import re
 import json
 from pathlib import Path
 
-from reportlab.lib.colors import HexColor, Color, white, black
+from reportlab.lib.colors import HexColor, Color, white
 from reportlab.pdfgen import canvas
 from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
 from reportlab.lib.styles import ParagraphStyle
@@ -29,8 +29,7 @@ from reportlab.platypus import Paragraph
 
 from aibrief import config
 from aibrief.pipeline.design_catalog import (
-    STYLES, COLOR_PALETTES, FONTS,
-    register_font, lookup_style, lookup_palette, lookup_font,
+    register_font, lookup_style, lookup_palette,
 )
 
 # ═══════════════════════════════════════════════════════════════
@@ -127,15 +126,9 @@ def _place_image(cv, img_path: str, x, y, w, h):
         print(f"  [Poster] Image error: {e}")
 
 
-def _luxury_name() -> str:
-    prefixes = ["Jaguar", "Aurèle", "Maison", "Noir", "Velvet",
-                "Luxe", "Sovereign", "Obsidian", "Ivory", "Sable",
-                "Marquis", "Rivière", "Tempest", "Cristal", "Platine",
-                "Cadence", "Meridian", "Ascent", "Soleil", "Nocturne"]
-    suffixes = ["Phantom", "Prestige", "Éclat", "Lumière", "Royal",
-                "Crown", "Sterling", "Heritage", "Atelier", "Opus",
-                "Dominion", "Vanguard", "Essence", "Pinnacle", "Sovereign"]
-    return f"{random.choice(prefixes)} {random.choice(suffixes)}"
+def _agent_name() -> str:
+    """Fixed agent author name."""
+    return "Orion Cael"
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -255,7 +248,7 @@ def _build_cover(cv, brief, story, design, visuals, font, bold,
 
     title = brief.get("brief_title", "AI Brief")
     subtitle = brief.get("subtitle", "")
-    asst = brief.get("_assistant_name", _luxury_name())
+    asst = brief.get("_assistant_name", _agent_name())
 
     GAP_TITLE_SUB = 30     # gap between title and subtitle
     GAP_SUB_AUTHOR = 40    # gap between subtitle and author box
@@ -823,7 +816,7 @@ def generate_poster(brief: dict, design: dict, story: dict,
         output_path = str(config.OUTPUT_DIR / f"{slug}_poster.pdf")
 
     visuals = visuals or {}
-    brief["_assistant_name"] = _luxury_name()
+    brief["_assistant_name"] = _agent_name()
 
     # ── Resolve design from catalog ──
     style_id = design.get("style_id", "luxury_minimalist")

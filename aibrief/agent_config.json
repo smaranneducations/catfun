@@ -9,14 +9,9 @@
     },
     "variable": {
       "assistant_name": {
-        "source": "LuxuryNameGenerator",
-        "description": "Rotating luxury brand-style name (perfume, leather goods, jewelry flavor)",
-        "examples": [
-          "Jaguar Phantom",
-          "Aurèle Prestige",
-          "Maison Soleil",
-          "Obsidian Crown"
-        ]
+        "source": "fixed",
+        "value": "Orion Cael",
+        "description": "Fixed agent author name — the navigator constellation meets celestial elegance"
       }
     }
   },

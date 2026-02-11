@@ -33,7 +33,7 @@ MASTER_CHECKLIST = [
     {"id": 3, "rule": "Design is COMPLETELY DIFFERENT from any prior version — unique palette, layout, motifs", "category": "design", "weight": 3},
     {"id": 4, "rule": "Uses creative tools: DALL-E images, Pillow infographics, data visualizations", "category": "visuals", "weight": 2},
     {"id": 5, "rule": "Author is 'Bhasker Kumar' — no fictional names", "category": "author", "weight": 3},
-    {"id": 6, "rule": "Assistant name is luxury-brand-style (perfume/leather/jewelry brand flavor)", "category": "author", "weight": 2},
+    {"id": 6, "rule": "Assistant name is 'Orion Cael' — the fixed agent author identity", "category": "author", "weight": 2},
     {"id": 7, "rule": "Credits mention agentic system with Claude, Gemini, and ChatGPT", "category": "author", "weight": 2},
     {"id": 8, "rule": "Agents actually argued and critiqued each other (not linear pipeline)", "category": "architecture", "weight": 3},
     {"id": 9, "rule": "Design quality matches luxury product website (Hermes, Chanel, LV level)", "category": "design", "weight": 3},

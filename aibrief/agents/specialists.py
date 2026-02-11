@@ -484,49 +484,6 @@ class ContentWriter(Agent):
             max_tokens=6000,
         )
 
-    def synthesise_poster(self, story: dict, perspectives: dict,
-                          page_count: int = 6, editor_notes: dict = None) -> dict:
-        """Alias for synthesise — always poster format now."""
-        return self.synthesise(story, perspectives, editor_notes)
-
-
-# ═══════════════════════════════════════════════════════════════
-#  DESIGN DIRECTOR — Visual design concept for the PDF
-# ═══════════════════════════════════════════════════════════════
-class DesignDirector(Agent):
-    def __init__(self):
-        super().__init__(
-            name="Design Director",
-            role="Visual design for the PDF brief",
-            model=config.MODEL_DESIGN_DIRECTOR,
-            system_prompt=(
-                "You are an award-winning editorial designer who has designed "
-                "publications for McKinsey, Bain, Deloitte, and The Economist.\n\n"
-                "Create a UNIQUE design concept for each brief. Be creative — "
-                "vary your palette, typography mood, and visual motifs each time.\n\n"
-                "Return JSON with:\n"
-                "  design_name: string (e.g. 'Midnight Strategy', 'Arctic Clarity')\n"
-                "  primary_color: string (hex, e.g. '#1a2b3c')\n"
-                "  secondary_color: string (hex)\n"
-                "  accent_color: string (hex, for highlights and pull quotes)\n"
-                "  background_color: string (hex, main page background)\n"
-                "  text_color: string (hex, body text)\n"
-                "  heading_color: string (hex, for section titles)\n"
-                "  mood: string (e.g. 'bold and authoritative', 'clean and minimal')\n"
-                "  visual_motif: string (e.g. 'geometric lines', 'gradient orbs', "
-                "'dot grid', 'diagonal stripes', 'concentric circles')\n"
-                "  cover_layout: string (describe the cover design concept)\n"
-            ),
-        )
-
-    def design(self, story: dict) -> dict:
-        return self.think(
-            "Create a unique, high-end visual design concept for a thought "
-            "leadership PDF brief about this AI news story. Make it look like "
-            "it came from a $500/hour consulting firm. Be creative with the "
-            "colour palette — surprise me every time.",
-            context={"story_headline": story.get("headline", "")},
-        )
 
 
 # ═══════════════════════════════════════════════════════════════

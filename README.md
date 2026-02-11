@@ -1,119 +1,77 @@
-# FinanceCats v3
+# AI Brief
 
-AI-powered finance education video generator. An AI news anchor reads viral economic/geopolitical news, then two professional cat characters explain the financial term embedded in the story — ultra-simple, with real-life analogies anyone can understand.
-
-## What's New in V3
-
-- **AI News Anchor** — A HeyGen-generated female anchor reads viral news in a high-end studio (no more third-party clips)
-- **Viral-first approach** — Finds the most viral economic/geopolitical story of the week, then picks a teaching term to embed
-- **100% original content** — No copyright risk from third-party news clips
-- **Shorter, punchier videos** — 3-4 minutes total (anchor 60-90s + cat conversation 2-3 min)
-- **Frozen anchor layout** — During cat explanation, the anchor frame freezes; cats overlay on one side
-- **Anchor always starts with date** — "OK, this news is from [date]..."
-- **Series tracking** — each episode teases the next term, creating binge-worthy series
+Autonomous multi-agent system that generates professional, visually rich PDF thought-leadership documents and posts them to LinkedIn. Scans for trending news in economics, tech, science, and media — then produces a 6-page poster-format PDF with emotion-driven design, AI-generated visuals, and a full agent credits section.
 
 ## How It Works
 
-1. **Viral News Scout** finds the most viral story from the last 7 days
-2. **Scout picks a teaching term** that naturally connects to the story
-3. **Script Writer** creates TWO scripts: anchor report + cat conversation
-4. **HeyGen API** generates a realistic talking-head anchor video
-5. **ElevenLabs** generates cat dialogue voices (Professor Whiskers + Cleo)
-6. **Compose**: anchor video plays → frame freezes → cats overlay explaining the term
-7. Upload to YouTube + LinkedIn
+1. **World Pulse** scans global sentiment to determine the emotional tone
+2. **News Scout** finds a real, verified trending article via Google Search grounding
+3. **Content Strategist** writes the brief (headline, 4 content pages, key insights)
+4. **Design DNA** detects the dominant emotion and maps it to a hardcoded design palette
+5. **Visual Generator** creates background + foreground images (Imagen 4.0 / DALL-E 3 / Pillow fallback)
+6. **Poster Generator** renders a multi-page PDF with ReportLab
+7. **Final Validator** checks 37 quality rules (80% pass threshold)
+8. **LinkedIn Expert** crafts the post copy and publishes the PDF
+
+## The Agents
+
+| Agent | Model | Role |
+|-------|-------|------|
+| World Pulse (Aria) | Gemini Flash | Global sentiment scanner |
+| News Scout (Kira) | Gemini Flash + Google Search | Finds real, verified trending news |
+| Content Strategist | Gemini Pro | Writes the brief content |
+| Design DNA | Gemini Pro | Detects emotion, maps to design catalog |
+| Copy Reviewer | GPT-4o | Critiques and refines content |
+| Visual Generator | Imagen 4.0 / DALL-E 3 | Generates background + foreground images |
+| LinkedIn Expert | GPT-4o | Crafts LinkedIn post with Unicode formatting |
+| Final Validator | GPT-4o | Validates PDF against 37 quality checkpoints |
+
+**Author:** Bhasker Kumar
+**Agent:** Orion Cael
 
 ## Quick Start
 
 ```bash
-# Install dependencies
 pip install -r requirements.txt
 
-# Set up API keys in .env (see .env for all required keys)
-# Required: OPENAI_API_KEY, ELEVENLABS_API_KEY, HEYGEN_API_KEY
-# Optional: YOUTUBE_API_KEY, LINKEDIN_ACCESS_TOKEN
-
-# Generate 30 professional cat images (run once)
-python main.py --generate-cats
-
-# List available HeyGen avatars (pick a female anchor)
-python main.py --list-avatars
+# Set up .env with API keys (OPENAI_API_KEY, GEMINI_API_KEY, LINKEDIN_ACCESS_TOKEN)
 
 # Run the full pipeline
-python main.py
+python -m aibrief.main
 
-# Run without uploading (for testing)
-python main.py --no-upload
-
-# Retry failed uploads
-python main.py --retry
+# Scheduler: 3x daily at random times
+python -m aibrief.scheduler
 ```
 
-## The Agents
-
-| Agent | Role |
-|-------|------|
-| Viral News Scout | Finds the most viral economic/geopolitical news |
-| Executive Producer | Brand guardian, manages series continuity |
-| Financial Historian | Researches historical events tied to each term |
-| Sociological Analyst | Adds social impact angles (when relevant) |
-| Geopolitical Analyst | Adds geopolitical context (when relevant) |
-| Script Writer | Writes anchor script + cat conversation script |
-| Fact Checker | Verifies all claims, dates, and numbers |
-| Creative Director | Selects two cat images and designs visual overlays |
-| YouTube Strategist | Writes SEO titles, descriptions, and tags |
-| LinkedIn Strategist | Creates LinkedIn post copy |
-
-## The Characters
-
-| Character | Voice | Role |
-|-----------|-------|------|
-| AI News Anchor | HeyGen AI (female) | Reads viral news, embeds financial term |
-| Professor Whiskers | Daniel (British male, ElevenLabs) | The calm, knowledgeable explainer |
-| Cleo | Charlotte (British female, ElevenLabs) | The curious questioner |
-
-## Video Structure
+## Project Structure
 
 ```
-0:00-1:30  AI Anchor reads viral news (embeds financial term naturally)
-1:30-3:30  FROZEN ANCHOR FRAME + CAT OVERLAY
-           - Anchor visible on left side
-           - Cats on right side (slightly smaller)
-           - Cats explain the term: definition, why now, history, takeaway
-3:30-4:00  Cats wrap up + tease next episode's term
+aibrief/
+  main.py                  # Entry point
+  config.py                # Central configuration
+  agent_config.json        # Agent roles, models, prompts
+  scheduler.py             # Runs pipeline 3x/day
+  agents/
+    base.py                # Base LLM agent (OpenAI + Gemini fallback)
+    orchestrator.py        # 13-phase pipeline orchestrator
+    specialists.py         # NewsScout, LinkedInExpert, CopyReviewer
+    world_pulse.py         # Global sentiment scanner
+    content_strategist.py  # Brief content writer
+    design_dna.py          # Emotion detection -> design mapping
+    validators.py          # 37-rule quality validator
+  pipeline/
+    design_catalog.py      # Emotion-to-design hardcoded map
+    poster_gen.py          # PDF layout engine (ReportLab)
+    visuals.py             # Image generation (Imagen/DALL-E/Pillow)
+    linkedin.py            # LinkedIn API client
+    dedup.py               # Semantic deduplication (embeddings)
+    tracer.py              # Run logging and decision architecture
 ```
 
-## Visual Layout (Cat Section)
+## API Keys
 
-```
-┌────────────────────────────────────────────────┐
-│                                                │
-│  [FROZEN ANCHOR FRAME]    [Cat A]    [Cat B]   │
-│  (left 55% of screen)    (right side, smaller) │
-│                           [text + key points]  │
-│                                                │
-└────────────────────────────────────────────────┘
-```
-
-## API Keys Needed
-
-| Service | Key | Purpose |
-|---------|-----|---------|
-| OpenAI | `OPENAI_API_KEY` | All agent LLM calls (GPT-4o) |
-| HeyGen | `HEYGEN_API_KEY` | AI anchor video generation |
-| ElevenLabs | `ELEVENLABS_API_KEY` | Cat voice generation (TTS) |
-| YouTube | `YOUTUBE_API_KEY` + OAuth | Video upload |
-| LinkedIn | `LINKEDIN_ACCESS_TOKEN` | Post creation |
-
-## Series Tracking
-
-Every video teases the next episode's term in the wrap-up. This term is saved in `episode_log.json` so the next run automatically picks it up, creating connected series of 10-15 episodes.
-
-## HeyGen Setup
-
-1. Sign up at [heygen.com](https://heygen.com)
-2. Get your API key from Settings → API
-3. Add `HEYGEN_API_KEY=your_key` to `.env`
-4. Run `python main.py --list-avatars` to see available avatars
-5. Optionally set `HEYGEN_AVATAR_ID=avatar_id` for a specific anchor
-
-Without a HeyGen API key, the pipeline falls back to ElevenLabs TTS audio over a static news-style background frame.
+| Service | Env Var | Purpose |
+|---------|---------|---------|
+| OpenAI | `OPENAI_API_KEY` | GPT-4o, DALL-E 3, embeddings |
+| Google | `GEMINI_API_KEY` | Gemini Flash/Pro, Imagen 4.0, Search grounding |
+| LinkedIn | `LINKEDIN_ACCESS_TOKEN` | PDF upload + post creation |

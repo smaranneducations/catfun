@@ -15,7 +15,6 @@ import random
 import math
 import requests
 from pathlib import Path
-from io import BytesIO
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 from aibrief import config
@@ -364,87 +363,6 @@ def generate_timeline(events: list[dict], design: dict, run_id: str,
         if len(txt) > 25:
             draw.text((cx - min(tw2, 120) // 2, ly + 35), txt[25:50],
                       fill=(*primary, 180), font=font_ev)
-
-    img.save(path, "PNG")
-    return path
-
-
-def generate_impact_bars(items: list[dict], design: dict, run_id: str,
-                         page_idx: int) -> str:
-    path = str(VISUALS_DIR / f"bars_{run_id}_{page_idx}.png")
-    w, h = 900, max(len(items) * 55 + 40, 200)
-    primary = _hex_to_rgb(design.get("primary_color", "#1a1a2e"))
-    accent = _hex_to_rgb(design.get("accent_color", "#00d4aa"))
-    bg = _hex_to_rgb(design.get("background_color", "#fafafa"))
-
-    img = Image.new("RGB", (w, h), bg)
-    draw = ImageDraw.Draw(img)
-    font_lbl = _get_font(14)
-    font_val = _get_font(12, bold=True)
-
-    bar_x = 200
-    bar_max_w = w - bar_x - 80
-
-    for i, item in enumerate(items[:6]):
-        y = 20 + i * 55
-        lbl = str(item.get("label", "?"))[:25]
-        val = min(int(item.get("value", 50)), 100)
-        draw.text((20, y + 8), lbl, fill=primary, font=font_lbl)
-        draw.rounded_rectangle([bar_x, y + 5, bar_x + bar_max_w, y + 30],
-                               radius=4, fill=(*primary, 15))
-        fill_w = int(bar_max_w * val / 100)
-        if fill_w > 0:
-            for px in range(fill_w):
-                t = px / max(fill_w, 1)
-                c = _lerp_color(accent, primary, t * 0.3)
-                draw.line([(bar_x + px, y + 5), (bar_x + px, y + 30)], fill=c)
-        draw.text((bar_x + fill_w + 8, y + 8), f"{val}%",
-                  fill=primary, font=font_val)
-
-    img.save(path, "PNG")
-    return path
-
-
-def generate_donut_chart(segments: list[dict], design: dict, run_id: str,
-                         page_idx: int) -> str:
-    path = str(VISUALS_DIR / f"donut_{run_id}_{page_idx}.png")
-    w, h = 500, 400
-    bg = _hex_to_rgb(design.get("background_color", "#fafafa"))
-    primary = _hex_to_rgb(design.get("primary_color", "#1a1a2e"))
-
-    img = Image.new("RGB", (w, h), bg)
-    draw = ImageDraw.Draw(img)
-
-    cx, cy, r_out, r_in = w // 2, 180, 130, 70
-    total = sum(s.get("value", 1) for s in segments) or 1
-
-    palette = [
-        _hex_to_rgb(design.get("accent_color", "#00d4aa")),
-        _hex_to_rgb(design.get("primary_color", "#1a1a2e")),
-        _hex_to_rgb(design.get("secondary_color", "#2e3a5f")),
-        (180, 180, 200), (120, 200, 160), (200, 140, 100),
-    ]
-
-    start = -90
-    for i, seg in enumerate(segments[:6]):
-        val = seg.get("value", 1)
-        sweep = 360 * val / total
-        end = start + sweep
-        color = palette[i % len(palette)]
-        draw.pieslice([cx - r_out, cy - r_out, cx + r_out, cy + r_out],
-                      start, end, fill=color)
-        start = end
-
-    draw.ellipse([cx - r_in, cy - r_in, cx + r_in, cy + r_in], fill=bg)
-
-    font_sm = _get_font(12)
-    ly = 330
-    for i, seg in enumerate(segments[:4]):
-        lx = 60 + i * 120
-        color = palette[i % len(palette)]
-        draw.rectangle([lx, ly, lx + 10, ly + 10], fill=color)
-        draw.text((lx + 16, ly - 2), str(seg.get("label", "?"))[:12],
-                  fill=primary, font=font_sm)
 
     img.save(path, "PNG")
     return path

@@ -26,8 +26,6 @@ MODEL_HISTORIAN = "gemini-2.0-flash"
 MODEL_ECONOMIST = "gemini-2.0-flash"
 MODEL_SOCIOLOGIST = "gemini-2.0-flash"
 MODEL_FUTURIST = "gemini-2.0-flash"
-MODEL_DESIGN_DIRECTOR = "gemini-2.0-flash"
-
 # Phase 0: World Pulse (cheap real-time scan)
 MODEL_WORLD_PULSE = "gemini-2.0-flash"
 
@@ -42,13 +40,3 @@ BASE_DIR = Path(__file__).resolve().parent
 OUTPUT_DIR = BASE_DIR / "output"
 OUTPUT_DIR.mkdir(exist_ok=True)
 
-# --- News Settings ---
-NEWS_LOOKBACK_DAYS = 7
-NEWS_CATEGORIES = ["trending", "viral", "breaking news", "most searched",
-                   "top stories", "global news", "economy", "technology",
-                   "politics", "science", "business", "entertainment"]
-
-# --- PDF Settings ---
-PDF_PAGE_WIDTH = 612   # Letter size (8.5 x 11 inches in points)
-PDF_PAGE_HEIGHT = 792
-PDF_MARGIN = 50

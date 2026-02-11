@@ -25,8 +25,6 @@ Usage:
 """
 import sys
 import json
-import time
-from pathlib import Path
 
 # Fix Windows console encoding
 if hasattr(sys.stdout, "reconfigure"):

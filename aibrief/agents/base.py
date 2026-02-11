@@ -35,15 +35,6 @@ class Agent:
             return self._gemini(task, context, json_mode, temperature, max_tokens)
         return self._openai(task, context, json_mode, temperature, max_tokens)
 
-    def critique(self, work: dict, author_name: str) -> dict:
-        """Review another agent's work and provide structured feedback."""
-        return self.think(
-            f"Critically review {author_name}'s work. Be constructive but honest. "
-            f"Identify strengths, weaknesses, missing angles, factual concerns, "
-            f"and tone issues. Score 1-10.",
-            context={"work_to_review": work},
-        )
-
     def respond_to_feedback(self, original: dict, feedback: dict) -> dict:
         """Revise own work based on editorial feedback."""
         return self.think(

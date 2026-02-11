@@ -1,12 +1,14 @@
+# AI Brief — Autonomous Thought Leadership PDF Generator
+# Core LLM clients
 openai
 google-genai
-yt-dlp
-youtube-transcript-api
+
+# PDF generation
+reportlab
+
+# Image processing
 Pillow
-python-dotenv
+
+# HTTP & environment
 requests
-mutagen
-google-api-python-client
-google-auth-oauthlib
-rembg
-onnxruntime
+python-dotenv

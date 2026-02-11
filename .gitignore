@@ -17,20 +17,27 @@ venv/
 .idea/
 *.swp
 *.swo
+.cursor/
 
-# Output and temp files
+# Generated output (PDFs, images, media)
+aibrief/output/
+aibrief/images/
 output/
 temp/
+assets/
 *.mp4
 *.mp3
 *.wav
 *.m4a
+
+# Logs (regenerated at runtime)
+aibrief/scheduler.log
 
 # OS
 .DS_Store
 Thumbs.db
 desktop.ini
 
-# YouTube OAuth tokens
+# OAuth tokens / credentials
 token.json
 client_secret*.json

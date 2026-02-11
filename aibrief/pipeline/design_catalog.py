@@ -344,5 +344,3 @@ def lookup_palette(palette_id: str) -> dict:
     return next((p for p in COLOR_PALETTES if p["id"] == palette_id),
                 COLOR_PALETTES[0])
 
-def lookup_font(font_id: str) -> dict:
-    return next((f for f in FONTS if f["id"] == font_id), FONTS[0])

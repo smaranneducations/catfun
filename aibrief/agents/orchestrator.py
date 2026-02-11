@@ -40,8 +40,7 @@ from aibrief.agents.content_strategist import ContentStrategistAgent
 from aibrief.agents.design_dna import DesignDNAAgent
 from aibrief.agents.specialists import (
     NewsScout, Historian, Economist, Sociologist, Futurist,
-    ContentWriter, DesignDirector, ContentReviewer, EditorInChief,
-    LinkedInExpert,
+    ContentWriter, ContentReviewer, EditorInChief, LinkedInExpert,
 )
 from aibrief.agents.base import Agent
 from aibrief.agents.validators import FinalValidatorAgent, GUARDRAIL
@@ -119,42 +118,6 @@ class CopyReviewer(Agent):
         )
 
 
-class DesignReviewer(Agent):
-    """Reviews design concepts. Demands luxury-tier visual quality."""
-    def __init__(self):
-        super().__init__(
-            name="Design Reviewer",
-            role="Luxury design critic",
-            model=config.MODEL_DESIGN_DIRECTOR,
-            system_prompt=(
-                "You are the art director at a luxury fashion house. "
-                "You have designed for Chanel, Dior, and Cartier. "
-                "You judge design concepts against the highest possible bar.\n\n"
-                "CRITICAL FOR THIS REVIEW: The design DNA must match the "
-                "WORLD SENTIMENT. Don't approve happy bright colors when "
-                "the world is anxious. Don't approve somber tones when "
-                "the world is optimistic.\n\n"
-                "REVIEW CRITERIA:\n"
-                "1. SENTIMENT MATCH — Do colors match today's world mood?\n"
-                "2. COLOR PSYCHOLOGY — Correct emotional associations?\n"
-                "3. GOLDEN RATIO — Mathematically harmonious proportions?\n"
-                "4. TYPOGRAPHY — Clear hierarchy (display, body, caption)?\n"
-                "5. UNIQUENESS — Surprising and fresh?\n"
-                "6. BACKGROUNDS — Rich textures, never plain white?\n"
-                "7. CATALOG COMPLIANCE — Did the agent pick from the catalog?\n\n"
-                "Return JSON:\n"
-                "{\n"
-                "  \"overall_score\": number (1-10),\n"
-                "  \"approved\": boolean,\n"
-                "  \"sentiment_match\": string,\n"
-                "  \"color_verdict\": string,\n"
-                "  \"demands\": [string],\n"
-                "  \"suggested_improvements\": [string]\n"
-                "}"
-            ),
-        )
-
-
 class ScreenRealEstateAgent(Agent):
     """Post-production auditor. Ensures no page has too much empty space."""
     def __init__(self):
@@ -208,7 +171,6 @@ class AutonomousOrchestrator:
 
         # ── Design agents ──
         self.design_dna = DesignDNAAgent()
-        self.design_reviewer = DesignReviewer()
 
         # ── Content agents ──
         self.scout = NewsScout()
@@ -538,8 +500,6 @@ class AutonomousOrchestrator:
         design = self.design_dna.create_identity(pulse, strategy, story)
         self.tracer.end_phase(design)
 
-        # NO DEBATE — design is deterministic from emotion map.
-        # Reviewer cannot override hardcoded style/palette/font.
         print(f"  \u25b8 Emotion: {design.get('emotion', '?')}")
         print(f"  \u25b8 Design: {design.get('design_name', '?')}")
         print(f"  \u25b8 Style: {design.get('style_id', '?')}")
