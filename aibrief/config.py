@@ -35,6 +35,9 @@ MODEL_CONTENT_STRATEGIST = "gpt-4o"
 # Phase 2: Design DNA (needs creative reasoning — visual identity)
 MODEL_DESIGN_DNA = "gpt-4o"
 
+# Phase 8.5: Discussion Potential (engagement analysis — needs reasoning)
+MODEL_DISCUSSION_POTENTIAL = "gpt-4o"
+
 # --- Paths ---
 BASE_DIR = Path(__file__).resolve().parent
 OUTPUT_DIR = BASE_DIR / "output"

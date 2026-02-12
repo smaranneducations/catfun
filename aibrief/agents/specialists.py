@@ -30,6 +30,55 @@ class NewsScout:
         self._client = genai.Client(api_key=config.GEMINI_API_KEY)
 
     @staticmethod
+    def _is_category_page(url: str) -> bool:
+        """Detect if a URL is a category/index/listing page rather than
+        an actual article.
+
+        Category signals:
+          - Path ends with a generic segment (no slug, no ID, no date)
+          - All segments are short generic words (news, topic, science, etc.)
+          - No alphanumeric slug or date pattern in the final segment
+          - URL path has no query string with article ID
+        """
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        path = parsed.path.rstrip("/")
+        if not path:
+            return True  # homepage
+
+        segments = [s for s in path.split("/") if s]
+        if not segments:
+            return True
+
+        # Known category path patterns (any segment matches → category)
+        category_words = {
+            "news", "topic", "topics", "category", "categories", "section",
+            "sections", "tag", "tags", "archive", "archives", "latest",
+            "trending", "popular", "featured", "index", "browse",
+            "computers_math", "markets_and_finance", "artificial_intelligence",
+            "science", "technology", "business", "health", "environment",
+            "politics", "sports", "entertainment", "education",
+        }
+
+        # If ALL segments are generic category words → category page
+        if all(s.lower().replace("-", "_") in category_words for s in segments):
+            return True
+
+        # If last segment is a category word and has no digits → category
+        last = segments[-1].lower().replace("-", "_")
+        if last in category_words:
+            return True
+
+        # Short path with no slug characteristics (digits, hyphens, long words)
+        has_digit = any(c.isdigit() for c in segments[-1])
+        has_slug = "-" in segments[-1] and len(segments[-1]) > 15
+        has_id = parsed.query and ("id=" in parsed.query or "article" in parsed.query)
+        if len(segments) <= 2 and not has_digit and not has_slug and not has_id:
+            return True
+
+        return False
+
+    @staticmethod
     def _resolve_grounding_url(redirect_url: str) -> str | None:
         """Follow a Vertex AI grounding redirect to get the real URL."""
         import requests
@@ -43,21 +92,9 @@ class NewsScout:
                 )},
             )
             final = resp.url
-            from urllib.parse import urlparse
-            path = urlparse(final).path.rstrip("/")
-            # Skip homepage
-            if not path or path == "":
+            if "404" in final.lower():
                 return None
-            # Skip 404 pages
-            if "404" in path.lower():
-                return None
-            # Skip category/index pages (e.g. /news/science/ or /topic/ai/)
-            # Real articles have deeper paths with slugs, dates, or IDs
-            segments = [s for s in path.split("/") if s]
-            if len(segments) <= 2 and not any(
-                c.isdigit() for c in segments[-1] if segments
-            ):
-                # Short path with no numbers = likely a category page
+            if NewsScout._is_category_page(final):
                 return None
             return final
         except Exception:
@@ -184,6 +221,10 @@ class NewsScout:
                     print(f"    [Skip] {src['title']} → category/index page")
                     continue
             elif uri.startswith("http"):
+                # Apply category filter to ALL URLs, not just Vertex redirects
+                if self._is_category_page(uri):
+                    print(f"    [Skip] {src['title']} → category/index page: {uri[:70]}")
+                    continue
                 resolved = uri
             else:
                 continue
@@ -572,6 +613,106 @@ class EditorInChief(Agent):
 
 
 # ═══════════════════════════════════════════════════════════════
+#  DISCUSSION POTENTIAL — Evaluates if content can spark engagement
+# ═══════════════════════════════════════════════════════════════
+
+class DiscussionPotentialAgent(Agent):
+    """Evaluates whether the content has potential to instigate meaningful
+    discussion and engagement on LinkedIn.
+
+    How it works:
+    1. Receives the synthesized brief (title, pages, key points) + story
+    2. Scores on 5 engagement dimensions (1-10 each):
+       - Controversy: Does the topic have two valid sides people will debate?
+       - Relevance: Does it affect a large professional audience *right now*?
+       - Novelty: Is this genuinely new, or recycled common knowledge?
+       - Actionability: Can readers do something with this information?
+       - Emotional Resonance: Does it trigger curiosity, fear, hope, or surprise?
+    3. Produces a composite engagement_score (0-100) and a verdict:
+       - >= 70: HIGH potential → proceed
+       - 50-69: MEDIUM → proceed with a suggested hook adjustment
+       - < 50: LOW → flag it (too generic / no debate angle)
+    4. Suggests 2-3 "discussion hooks" — provocative questions or angles
+       that the LinkedIn post can lead with to maximise comments.
+    """
+
+    def __init__(self):
+        super().__init__(
+            name="Discussion Potential Analyst",
+            role="Evaluates content engagement and discussion potential",
+            model=config.MODEL_DISCUSSION_POTENTIAL,
+            system_prompt=(
+                "You are a LinkedIn engagement strategist with deep expertise in "
+                "what makes professional content go viral. You analyse content and "
+                "predict whether it will spark meaningful discussion.\n\n"
+                "You score on five dimensions (1-10 each):\n"
+                "  1. CONTROVERSY — Are there two legitimate sides to debate?\n"
+                "  2. RELEVANCE — Does this affect many professionals right now?\n"
+                "  3. NOVELTY — Is this genuinely new information or insight?\n"
+                "  4. ACTIONABILITY — Can readers act on this knowledge?\n"
+                "  5. EMOTIONAL RESONANCE — Does it trigger curiosity/fear/hope/surprise?\n\n"
+                "You also suggest 2-3 'discussion hooks' — provocative opening "
+                "questions that would maximise comments on LinkedIn.\n\n"
+                "Return JSON only:\n"
+                "{\n"
+                '  "controversy": {score, reasoning},\n'
+                '  "relevance": {score, reasoning},\n'
+                '  "novelty": {score, reasoning},\n'
+                '  "actionability": {score, reasoning},\n'
+                '  "emotional_resonance": {score, reasoning},\n'
+                '  "engagement_score": number (0-100),\n'
+                '  "verdict": "HIGH" | "MEDIUM" | "LOW",\n'
+                '  "discussion_hooks": ["question1", "question2", "question3"],\n'
+                '  "suggested_angle": "how to reframe if LOW",\n'
+                '  "reasoning": "overall assessment"\n'
+                "}\n"
+            ),
+        )
+
+    def evaluate(self, story: dict, brief: dict) -> dict:
+        """Evaluate discussion potential of the content."""
+        title = brief.get("brief_title", "")
+        pages = brief.get("pages", [])
+
+        # Extract key content for analysis
+        content_summary = []
+        for p in pages:
+            pt = p.get("page_type", "")
+            title_p = p.get("page_title", "")
+            points = p.get("points", [])
+            quote = p.get("quote", "")
+            if title_p:
+                content_summary.append(f"[{pt}] {title_p}")
+            for pt_item in points[:3]:
+                if isinstance(pt_item, dict):
+                    content_summary.append(f"  - {pt_item.get('point', '')}")
+                else:
+                    content_summary.append(f"  - {str(pt_item)[:80]}")
+            if quote:
+                content_summary.append(f'  Quote: "{quote[:100]}"')
+
+        prompt = (
+            f"Evaluate the discussion potential of this LinkedIn thought "
+            f"leadership brief:\n\n"
+            f"HEADLINE: {story.get('headline', '?')}\n"
+            f"BRIEF TITLE: {title}\n"
+            f"CATEGORY: {story.get('news_category', '?')}\n"
+            f"WHY VIRAL: {story.get('why_viral', '?')}\n"
+            f"SUMMARY: {story.get('summary', '?')}\n\n"
+            f"CONTENT STRUCTURE:\n"
+            + "\n".join(content_summary[:20])
+            + "\n\nWill this spark meaningful professional discussion on LinkedIn? "
+            f"Score each dimension and provide discussion hooks."
+        )
+
+        return self.think(prompt, context={
+            "story_headline": story.get("headline"),
+            "brief_title": title,
+            "page_count": len(pages),
+        })
+
+
+# ═══════════════════════════════════════════════════════════════
 #  LINKEDIN EXPERT — Crafts the post with unicode formatting
 # ═══════════════════════════════════════════════════════════════
 class LinkedInExpert(Agent):
@@ -650,9 +791,19 @@ class LinkedInExpert(Agent):
         )
         return text
 
-    def craft_post(self, story: dict, brief_content: dict) -> dict:
+    def craft_post(self, story: dict, brief_content: dict,
+                   hooks: list = None) -> dict:
         news_url = story.get("news_url", "")
         publisher = story.get("publisher", "")
+
+        hooks_instruction = ""
+        if hooks:
+            hooks_instruction = (
+                "\n\nDISCUSSION HOOKS (from engagement analysis — use one as "
+                "the CTA or weave into the post to spark comments):\n"
+                + "\n".join(f"  • {h}" for h in hooks[:3])
+            )
+
         result = self.think(
             "Write a LinkedIn post promoting this brief. The post should "
             "stand on its own as valuable content — not just a promo. Use "
@@ -662,7 +813,8 @@ class LinkedInExpert(Agent):
             f"(before hashtags). Publisher: {publisher}. URL: {news_url}. "
             "The URL must be a PLAIN URL on its own line (NO Markdown). "
             "LinkedIn auto-detects URLs and makes them clickable. "
-            "NEVER use [text](url) format.",
+            "NEVER use [text](url) format."
+            + hooks_instruction,
             context={"story": story, "brief_summary": brief_content,
                      "news_url": news_url, "publisher": publisher},
             max_tokens=3000,

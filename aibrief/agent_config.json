@@ -449,6 +449,27 @@
         "LinkedInExpert"
       ]
     },
+    "DiscussionPotentialAnalyst": {
+      "name": "Spark",
+      "role": "Evaluates content engagement and discussion potential on LinkedIn",
+      "model": "gpt-4o",
+      "fixed_strings": {
+        "core_instruction": "Score engagement on 5 dimensions: Controversy, Relevance, Novelty, Actionability, Emotional Resonance. Provide discussion hooks for the LinkedIn post."
+      },
+      "variable_strings": {
+        "brief": {
+          "source": "ContentWriter",
+          "description": "Synthesized content brief to evaluate"
+        },
+        "story": {
+          "source": "NewsScout",
+          "description": "Original story for context"
+        }
+      },
+      "outputs_to": [
+        "LinkedInExpert"
+      ]
+    },
     "LinkedInExpert": {
       "name": "Herald",
       "role": "Crafts the LinkedIn post with Unicode formatting",
@@ -464,6 +485,10 @@
         "design_dna": {
           "source": "DesignDNA",
           "description": "Tone and mood to match"
+        },
+        "discussion_hooks": {
+          "source": "DiscussionPotentialAnalyst",
+          "description": "Engagement hooks to weave into the post"
         }
       },
       "outputs_to": [

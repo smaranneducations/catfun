@@ -11,6 +11,8 @@ Architecture:
   Phase 6:  Editorial Oversight → editor reviews all perspectives (GPT-4o)
   Phase 7:  Content Synthesis → poster content + copy reviewer argue (GPT-4o)
   Phase 8:  Neutrality Check → ethical guardrail enforcement (GPT-4o)
+  Phase 8.5: Discussion Potential → engagement scoring + hooks (GPT-4o)
+  Phase 8.7: Pre-Visual Validation → content/structure gate (GPT-4o)
   Phase 9:  Visuals → DALL-E images + Pillow infographics
   Phase 10: PDF → poster + agent credits + decision architecture mind map
   Phase 11: Screen Audit → page fill golden ratio check (GPT-4o)
@@ -41,9 +43,13 @@ from aibrief.agents.design_dna import DesignDNAAgent
 from aibrief.agents.specialists import (
     NewsScout, Historian, Economist, Sociologist, Futurist,
     ContentWriter, ContentReviewer, EditorInChief, LinkedInExpert,
+    DiscussionPotentialAgent,
 )
 from aibrief.agents.base import Agent
-from aibrief.agents.validators import FinalValidatorAgent, GUARDRAIL
+from aibrief.agents.validators import (
+    PreVisualValidator, PostVisualValidator, FinalValidatorAgent,
+    GUARDRAIL, PASS_THRESHOLD,
+)
 from aibrief.pipeline.tracer import RunTracer
 
 
@@ -190,7 +196,9 @@ class AutonomousOrchestrator:
         self.copy_reviewer = CopyReviewer()
         self.neutrality_reviewer = ContentReviewer()
         self.screen_auditor = ScreenRealEstateAgent()
-        self.validator = FinalValidatorAgent()
+        self.discussion_analyst = DiscussionPotentialAgent()
+        self.pre_validator = PreVisualValidator()
+        self.post_validator = PostVisualValidator()
 
     @staticmethod
     def _load_config() -> dict:
@@ -733,6 +741,58 @@ class AutonomousOrchestrator:
         return brief
 
     # ═══════════════════════════════════════════════════════════
+    #  PHASE 8.5: DISCUSSION POTENTIAL
+    # ═══════════════════════════════════════════════════════════
+
+    def _phase_discussion_potential(self, story: dict, brief: dict) -> dict:
+        """Evaluate if the content can spark meaningful LinkedIn discussion.
+
+        Returns the evaluation dict with engagement_score, verdict,
+        and discussion_hooks that the LinkedIn post can use.
+        """
+        print("\n" + "=" * 65)
+        print("  PHASE 8.5: DISCUSSION POTENTIAL (Spark)")
+        print("=" * 65)
+
+        self.tracer.begin_phase(
+            phase="DiscussionPotential",
+            agent_name="DiscussionPotentialAnalyst",
+            agent_codename="Spark",
+            model=config.MODEL_DISCUSSION_POTENTIAL,
+            fixed_inputs={
+                "core_instruction": "Score engagement potential on 5 dimensions",
+                "threshold": ">=70 HIGH, 50-69 MEDIUM, <50 LOW",
+            },
+            variable_inputs={
+                "brief": self.tracer.var_ref(
+                    "ContentWriter", "Quill", "ContentSynthesis",
+                    brief.get("brief_title")),
+                "story": self.tracer.var_ref(
+                    "NewsScout", "Sable", "TopicDiscovery",
+                    story.get("headline")),
+            },
+        )
+
+        evaluation = self.discussion_analyst.evaluate(story, brief)
+        self.tracer.end_phase(evaluation)
+
+        score = evaluation.get("engagement_score", 0)
+        verdict = evaluation.get("verdict", "?")
+        hooks = evaluation.get("discussion_hooks", [])
+
+        print(f"  ▸ Engagement score: {score}/100")
+        print(f"  ▸ Verdict: {verdict}")
+        for i, hook in enumerate(hooks[:3]):
+            print(f"    Hook {i+1}: {hook[:70]}")
+
+        if verdict == "LOW":
+            angle = evaluation.get("suggested_angle", "")
+            if angle:
+                print(f"  ⚠ Suggested reframe: {angle[:80]}")
+
+        return evaluation
+
+    # ═══════════════════════════════════════════════════════════
     #  PHASE 9: VISUALS
     # ═══════════════════════════════════════════════════════════
 
@@ -854,13 +914,13 @@ class AutonomousOrchestrator:
         return audit
 
     # ═══════════════════════════════════════════════════════════
-    #  PHASE 12: FINAL VALIDATION (37 RULES)
+    #  PHASE 8.7: PRE-VISUAL VALIDATION (content + structure)
     # ═══════════════════════════════════════════════════════════
 
-    def _phase_validation(self, brief: dict, design: dict, story: dict,
-                          visuals: dict, audit: dict) -> dict:
+    def _phase_pre_validation(self, brief: dict, design: dict,
+                              story: dict) -> dict:
         print("\n" + "=" * 65)
-        print("  PHASE 12: FINAL VALIDATION \u2014 37 master checkpoints (Sentinel)")
+        print(f"  PHASE 8.7: PRE-VISUAL VALIDATION — content gate (Sentinel-A)")
         print("=" * 65)
 
         debates = [e for e in self.tracer.entries if e.get("phase") == "DEBATE"]
@@ -870,11 +930,65 @@ class AutonomousOrchestrator:
         }
 
         self.tracer.begin_phase(
-            phase="FinalValidation",
-            agent_name="FinalValidator",
-            agent_codename="Sentinel",
+            phase="PreVisualValidation",
+            agent_name="PreVisualValidator",
+            agent_codename="Sentinel-A",
             model="gpt-4o",
-            fixed_inputs={"checklist": "37 master rules", "threshold": "80%"},
+            fixed_inputs={
+                "checklist": "17 content/structure rules",
+                "threshold": f"{PASS_THRESHOLD}%",
+            },
+            variable_inputs={
+                "brief": self.tracer.var_ref(
+                    "ContentWriter", "Quill", "ContentSynthesis",
+                    brief.get("brief_title")),
+                "design": self.tracer.var_ref(
+                    "DesignDNA", "Vesper", "DesignDNA",
+                    design.get("design_name")),
+                "agent_rounds": self.tracer.var_ref(
+                    "Tracer", "", "Debates", agent_rounds),
+            },
+        )
+
+        result = self.pre_validator.validate(
+            brief=brief, design=design, story=story,
+            agent_rounds=agent_rounds,
+        )
+        self.tracer.end_phase(result)
+
+        total = result.get("total_score", 0)
+        approved = result.get("approved", False)
+        explanation = result.get("explanation", "")
+        print(f"  ▸ Score: {total}/100, Approved: {approved}")
+        if explanation:
+            print(f"  ▸ Why: {explanation[:150]}")
+
+        if result.get("critical_failures"):
+            for cf in result["critical_failures"][:3]:
+                print(f"    ✗ {cf}")
+
+        return result
+
+    # ═══════════════════════════════════════════════════════════
+    #  PHASE 12: POST-VISUAL VALIDATION (layout + visuals)
+    # ═══════════════════════════════════════════════════════════
+
+    def _phase_post_validation(self, brief: dict, design: dict,
+                               story: dict, visuals: dict,
+                               audit: dict) -> dict:
+        print("\n" + "=" * 65)
+        print(f"  PHASE 12: POST-VISUAL VALIDATION — layout gate (Sentinel-B)")
+        print("=" * 65)
+
+        self.tracer.begin_phase(
+            phase="PostVisualValidation",
+            agent_name="PostVisualValidator",
+            agent_codename="Sentinel-B",
+            model="gpt-4o",
+            fixed_inputs={
+                "checklist": "18 visual/layout rules",
+                "threshold": f"{PASS_THRESHOLD}%",
+            },
             variable_inputs={
                 "brief": self.tracer.var_ref(
                     "ContentWriter", "Quill", "ContentSynthesis",
@@ -885,34 +999,35 @@ class AutonomousOrchestrator:
                 "audit": self.tracer.var_ref(
                     "ScreenAuditor", "Ratio", "ScreenAudit",
                     audit.get("approved")),
-                "agent_rounds": self.tracer.var_ref(
-                    "Tracer", "", "Debates", agent_rounds),
             },
         )
 
-        validation = self.validator.validate(
+        result = self.post_validator.validate(
             brief=brief, design=design, story=story,
             visuals_count=len(visuals),
-            audit_result=audit, agent_rounds=agent_rounds,
+            audit_result=audit,
         )
-        self.tracer.end_phase(validation)
+        self.tracer.end_phase(result)
 
-        total = validation.get("total_score", 0)
-        approved = validation.get("approved", False)
-        print(f"  \u25b8 Score: {total}/100, Approved: {approved}")
+        total = result.get("total_score", 0)
+        approved = result.get("approved", False)
+        explanation = result.get("explanation", "")
+        print(f"  ▸ Score: {total}/100, Approved: {approved}")
+        if explanation:
+            print(f"  ▸ Why: {explanation[:150]}")
 
-        if validation.get("critical_failures"):
-            for cf in validation["critical_failures"][:5]:
-                print(f"    \u2717 {cf}")
+        if result.get("critical_failures"):
+            for cf in result["critical_failures"][:3]:
+                print(f"    ✗ {cf}")
 
-        return validation
+        return result
 
     # ═══════════════════════════════════════════════════════════
     #  PHASE 13: LINKEDIN POST
     # ═══════════════════════════════════════════════════════════
 
     def _phase_linkedin(self, brief: dict, story: dict, design: dict,
-                        pdf_path: str) -> dict:
+                        pdf_path: str, discussion: dict = None) -> dict:
         print("\n" + "=" * 65)
         print("  PHASE 13: LINKEDIN POST (Herald)")
         print("=" * 65)
@@ -930,10 +1045,16 @@ class AutonomousOrchestrator:
                 "design_mood": self.tracer.var_ref(
                     "DesignDNA", "Vesper", "DesignDNA",
                     design.get("mood")),
+                "discussion_hooks": self.tracer.var_ref(
+                    "DiscussionPotentialAnalyst", "Spark",
+                    "DiscussionPotential",
+                    (discussion or {}).get("discussion_hooks", [])),
             },
         )
 
-        li_post = self.linkedin_expert.craft_post(story, brief)
+        # Pass discussion hooks to the LinkedIn expert for better engagement
+        hooks = (discussion or {}).get("discussion_hooks", [])
+        li_post = self.linkedin_expert.craft_post(story, brief, hooks=hooks)
         # Save FULL post text (not truncated) for reuse
         self.tracer.end_phase(
             self.tracer._truncate_value_full(li_post))
@@ -1030,29 +1151,68 @@ class AutonomousOrchestrator:
         # ── Phase 8: Neutrality Check ──
         brief = self._phase_neutrality(brief, story, perspectives)
 
+        # ── Phase 8.5: Discussion Potential ──
+        discussion = self._phase_discussion_potential(story, brief)
+
+        # ── Phase 8.7: PRE-VISUAL Validation (content/structure gate) ──
+        pre_val = self._phase_pre_validation(brief, design, story)
+
         # ── Phase 9: Visuals ──
         visuals = self._phase_visuals(brief, story, design, perspectives)
 
         # ── Phase 11: Screen Audit (before PDF to inform) ──
         audit = self._phase_screen_audit(brief, design, visuals)
 
-        # ── Phase 12: Final Validation ──
-        validation = self._phase_validation(brief, design, story, visuals, audit)
-
         # ── Phase 10: PDF (poster + agent credits + mind map) ──
         elapsed = time.time() - t0
         pdf_path = self._phase_pdf(brief, design, story, visuals,
-                                   pulse, strategy, validation, elapsed)
+                                   pulse, strategy, pre_val, elapsed)
 
-        # ── Phase 13: LinkedIn ──
-        li_result = self._phase_linkedin(brief, story, design, pdf_path)
+        # ── Phase 12: POST-VISUAL Validation (layout/visuals gate) ──
+        post_val = self._phase_post_validation(brief, design, story, visuals, audit)
+
+        # Combine scores for final gate
+        pre_score = pre_val.get("total_score", 0)
+        post_score = post_val.get("total_score", 0)
+        combined_score = round((pre_score + post_score) / 2, 1)
+        validation = {
+            "pre_visual": pre_val,
+            "post_visual": post_val,
+            "total_score": combined_score,
+            "approved": combined_score >= PASS_THRESHOLD,
+        }
+
+        # ── GATE: Only post if combined >= 60% ──
+        li_result = {}
+        if validation["approved"]:
+            # ── Phase 13: LinkedIn ──
+            li_result = self._phase_linkedin(
+                brief, story, design, pdf_path, discussion=discussion)
+        else:
+            print(f"\n  ⛔ BLOCKED: Combined {combined_score}/100 "
+                  f"(pre:{pre_score}, post:{post_score}, need ≥{PASS_THRESHOLD})")
+            print(f"    PDF saved but NOT posted to LinkedIn.")
+            # Print the judge's explanations
+            pre_expl = pre_val.get("explanation", "")
+            post_expl = post_val.get("explanation", "")
+            if pre_expl:
+                print(f"    Pre-visual judge: {pre_expl[:120]}")
+            if post_expl:
+                print(f"    Post-visual judge: {post_expl[:120]}")
+            li_result = {
+                "status": "blocked",
+                "reason": (f"Combined score {combined_score}/100 "
+                           f"(pre:{pre_score}, post:{post_score})"),
+            }
 
         # ── Save Trace ──
         elapsed = time.time() - t0
         trace_path = self.tracer.save(final_output={
             "pdf_path": pdf_path,
             "linkedin": li_result,
-            "validation_score": validation.get("total_score"),
+            "validation_score": combined_score,
+            "pre_visual_score": pre_score,
+            "post_visual_score": post_score,
             "content_type": strategy.get("content_type"),
             "world_mood": pulse.get("mood"),
             "emotion": design.get("emotion"),
@@ -1062,6 +1222,8 @@ class AutonomousOrchestrator:
             "font_id": design.get("font_id"),
             "imagen_style": design.get("imagen_style"),
             "headline": story.get("headline"),
+            "discussion_score": discussion.get("engagement_score"),
+            "discussion_verdict": discussion.get("verdict"),
         })
 
         print(f"\n{'=' * 65}")
@@ -1077,7 +1239,7 @@ class AutonomousOrchestrator:
         print(f"  World mood: {pulse.get('mood', '?')}")
         print(f"  Design: {design.get('design_name', '?')}")
         print(f"  PDF: {pdf_path}")
-        print(f"  Validation: {validation.get('total_score', '?')}/100")
+        print(f"  Validation: {combined_score}/100 (pre:{pre_score}, post:{post_score})")
         print(f"  Trace: {trace_path}")
         print(f"{'=' * 65}")
 
