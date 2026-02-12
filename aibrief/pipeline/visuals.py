@@ -37,6 +37,12 @@ def _get_imagen():
 VISUALS_DIR = config.OUTPUT_DIR / "visuals"
 VISUALS_DIR.mkdir(exist_ok=True)
 
+# Organized subdirectories
+from aibrief.pipeline.image_cache import (
+    BACKGROUNDS_DIR, FOREGROUNDS_DIR, COVERS_DIR, INFOGRAPHICS_DIR,
+    register_image,
+)
+
 
 # ═══════════════════════════════════════════════════════════════
 #  HELPERS
@@ -139,15 +145,18 @@ def generate_background_image(style_id: str, page_topic: str,
     any previous run, we reuse it — no regeneration needed.
     """
     # Cache key: theme + page index (not run_id)
-    cache_path = str(VISUALS_DIR / f"bg_theme_{style_id}_{page_idx}.png")
+    cache_path = str(BACKGROUNDS_DIR / f"bg_theme_{style_id}_{page_idx}.png")
     if os.path.exists(cache_path):
         print(f"  [Cache] BG page {page_idx} reused from theme cache ({style_id})")
         return cache_path
 
-    # Also check old run-based path for backward compat
-    old_path = str(VISUALS_DIR / f"bg_{run_id}_{page_idx}.png")
-    if os.path.exists(old_path):
-        return old_path
+    # Also check old flat directory for backward compat
+    old_flat = str(VISUALS_DIR / f"bg_theme_{style_id}_{page_idx}.png")
+    if os.path.exists(old_flat):
+        return old_flat
+    old_run = str(VISUALS_DIR / f"bg_{run_id}_{page_idx}.png")
+    if os.path.exists(old_run):
+        return old_run
 
     # Use hardcoded values from emotion-driven design
     imagen_style = design.get("imagen_style", "corporate minimal, professional")
@@ -174,6 +183,9 @@ def generate_background_image(style_id: str, page_topic: str,
     if not result:
         result = _generate_gradient_art(cache_path, design)
         print(f"  [Pillow] BG gradient fallback for page {page_idx}")
+    if result:
+        register_image("backgrounds", f"bg_theme_{style_id}_{page_idx}",
+                        result, style_id=style_id, page_idx=page_idx)
     return result
 
 
@@ -187,9 +199,13 @@ def generate_foreground_image(topic: str, page_content: str,
     Each page gets a unique foreground that visually expresses its
     specific content (not just the overall headline).
     """
-    path = str(VISUALS_DIR / f"fg_{run_id}_{page_idx}.png")
+    path = str(FOREGROUNDS_DIR / f"fg_{run_id}_{page_idx}.png")
     if os.path.exists(path):
         return path
+    # Backward compat: check old flat directory
+    old_path = str(VISUALS_DIR / f"fg_{run_id}_{page_idx}.png")
+    if os.path.exists(old_path):
+        return old_path
 
     fg_mood = design.get("fg_mood", "professional, editorial")
     imagen_style = design.get("imagen_style", "corporate minimal")
@@ -220,15 +236,22 @@ def generate_foreground_image(topic: str, page_content: str,
     else:
         print(f"  [DALL-E] FG page {page_idx} (fallback)...")
         result = _generate_dalle(prompt, path, size="1024x1024")
+    if result:
+        register_image("foregrounds", f"fg_{run_id}_{page_idx}",
+                        result, run_id=run_id, page_idx=page_idx)
     return result
 
 
 def generate_cover_image(headline: str, design: dict, run_id: str,
                          style_id: str = "") -> str:
     """Generate an abstract cover image using HARDCODED style from emotion map."""
-    path = str(VISUALS_DIR / f"cover_{run_id}.png")
+    path = str(COVERS_DIR / f"cover_{run_id}.png")
     if os.path.exists(path):
         return path
+    # Backward compat: check old flat directory
+    old_path = str(VISUALS_DIR / f"cover_{run_id}.png")
+    if os.path.exists(old_path):
+        return old_path
 
     imagen_style = design.get("imagen_style", "corporate minimal")
     fg_mood = design.get("fg_mood", "professional, editorial")

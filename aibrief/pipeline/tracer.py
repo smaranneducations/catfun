@@ -96,11 +96,16 @@ class RunTracer:
         self.entries.append(entry)
         self._current = None
 
-    def log_debate(self, pair_name: str, rounds: list[dict]):
+    def log_debate(self, pair_name: str, rounds: list[dict],
+                   preparer_name: str = "", reviewer_name: str = "",
+                   label: str = ""):
         """Log a preparer/reviewer debate with round-by-round results."""
         self.entries.append({
             "phase": "DEBATE",
             "pair": pair_name,
+            "preparer_name": preparer_name,
+            "reviewer_name": reviewer_name,
+            "label": label,
             "total_rounds": len(rounds),
             "rounds": rounds,
             "timestamp": datetime.now().isoformat(),

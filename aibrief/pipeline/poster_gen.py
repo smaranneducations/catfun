@@ -1,4 +1,4 @@
-"""Poster + Agent Credits + Run Info + Decision Architecture PDF Generator.
+"""Poster + Agent Credits + Run Info + Decision Architecture + Debates PDF Generator.
 
 Output structure:
   Section 1 — POSTER:
@@ -14,6 +14,9 @@ Output structure:
 
   Section 4 — DECISION ARCHITECTURE:
     Readable list format: each phase with one-liner of what happened
+
+  Section 5 — DEBATES & JUDGMENTS:
+    Each debate pair: persona images, round-by-round scores, demands, verdicts
 """
 import math
 import random
@@ -548,12 +551,15 @@ def _build_content_page(cv, page, page_num, page_idx, design, visuals,
 #  SECTION 2: AGENT CREDITS (big text, role next to name)
 # ═══════════════════════════════════════════════════════════════
 
-def _build_agent_credits(cv, agents_info, font, bold, colors, style_id):
+def _build_agent_credits(cv, agents_info, font, bold, colors, style_id,
+                         persona_paths=None):
     if not agents_info:
         return
 
+    ppaths = persona_paths or {}
     accent = colors["accent"]
-    agents_per_page = 7
+    icon_size = 42
+    agents_per_page = 5  # fewer per page to fit icons
     pages = [agents_info[i:i + agents_per_page]
              for i in range(0, len(agents_info), agents_per_page)]
 
@@ -578,24 +584,44 @@ def _build_agent_credits(cv, agents_info, font, bold, colors, style_id):
 
         for agent in page_agents:
             codename = agent.get("codename", "?")
+            agent_name = agent.get("name", "")
             role = agent.get("role", "")
-            mandate = agent.get("mandate", "")[:130]
-            if len(agent.get("mandate", "")) > 130:
+            mandate = agent.get("mandate", "")[:120]
+            if len(agent.get("mandate", "")) > 120:
                 mandate += "..."
 
+            # Resolve codename for persona image lookup
+            img_code = codename
+            if not img_code or img_code not in ppaths:
+                img_code = _CONFIG_NAME_TO_CODENAME.get(agent_name, "")
+
+            # Text positioning: shift right if we have an icon
+            has_icon = img_code and img_code in ppaths
+            text_left = M + icon_size + 14 if has_icon else M + 14
+            text_w = CW - icon_size - 20 if has_icon else CW - 20
+
+            # Persona icon
+            if has_icon:
+                _place_image(cv, ppaths[img_code],
+                             M, y - icon_size - 8, icon_size, icon_size)
+
+            # Accent bar
             cv.setFillColor(accent)
-            cv.rect(M, y - 68, 4, 62, fill=1, stroke=0)
+            cv.rect(text_left - 6, y - icon_size - 8, 3,
+                    icon_size + 4 if has_icon else 62, fill=1, stroke=0)
 
             header = f"{codename} \u2014 {role}"
-            y = _text(cv, header, M + 14, y, bold, 15, _hex("#1a1a2e"),
-                      max_w=CW - 20, leading=19)
-            y = _text(cv, mandate, M + 14, y - 4, font, 9,
-                      _hex("#666666"), max_w=CW - 24, leading=12)
-            y -= 10
+            y_text = _text(cv, header, text_left, y, bold, 14,
+                           _hex("#1a1a2e"), max_w=text_w, leading=17)
+            y_text = _text(cv, mandate, text_left, y_text - 3, font, 9,
+                           _hex("#666666"), max_w=text_w, leading=11)
+
+            y = min(y_text, y - icon_size - 14) if has_icon else y_text
+            y -= 8
             cv.setStrokeColor(_hex("#e0ddd5"))
             cv.setLineWidth(0.5)
-            cv.line(M + 14, y, W - M, y)
-            y -= 10
+            cv.line(M, y, W - M, y)
+            y -= 8
 
         _text(cv, f"Agent Credits  \u2022  {pi + 1}/{len(pages)}",
               M, 18, font, 8, _hex("#aaaaaa"), max_w=CW, align="center")
@@ -793,13 +819,839 @@ def _build_mind_map(cv, tracer_flow, topic, font, bold, colors):
 
 
 # ═══════════════════════════════════════════════════════════════
+#  AGENT PERSONA DEFINITIONS
+# ═══════════════════════════════════════════════════════════════
+
+# ── Agent persona definitions ──
+# Each agent has a fixed character identity (gender, hair, features)
+# and an anime-style futuristic portrait prompt.
+# These are REUSABLE across projects — see personas/manifest.json.
+#
+# Style: Head-and-shoulder portrait, anime art, futuristic,
+#        identifiable human face, clean background.
+
+_PERSONA_STYLE = (
+    "anime style head and shoulders portrait, identifiable human face, "
+    "futuristic sci-fi aesthetic, clean gradient background, "
+    "detailed expressive eyes, soft cinematic lighting, "
+    "no text, no words, no letters, no logos"
+)
+
+# {codename: {description, gender, prompt}}
+AGENT_PERSONA_DEFS = {
+    "Aria": {
+        "description": "World Pulse Scanner — senses global sentiment",
+        "gender": "female",
+        "hair": "flowing silver-white hair with faint blue glow",
+        "features": "calm serene expression, pale blue eyes, translucent holographic earpiece",
+        "accent_color": "soft cyan",
+    },
+    "Marcus": {
+        "description": "Content Strategist — decides what to publish",
+        "gender": "male",
+        "hair": "short dark brown hair, neatly combed back",
+        "features": "sharp focused gaze, dark-rimmed smart glasses with HUD reflection, strong jawline",
+        "accent_color": "deep navy blue",
+    },
+    "Sable": {
+        "description": "News Scout — finds trending stories via search",
+        "gender": "female",
+        "hair": "jet black asymmetric bob cut with one side longer",
+        "features": "intense amber eyes, dark high-collar jacket, holographic press badge",
+        "accent_color": "warm amber",
+    },
+    "Vesper": {
+        "description": "Design DNA — detects emotion and picks visual style",
+        "gender": "female",
+        "hair": "wavy purple-violet hair with paint-streak highlights",
+        "features": "dreamy artistic expression, large expressive violet eyes, colorful paint smudge on cheek",
+        "accent_color": "violet purple",
+    },
+    "Clio": {
+        "description": "Historian — provides historical perspective",
+        "gender": "female",
+        "hair": "long auburn-red hair in a loose braid",
+        "features": "warm wise smile, green eyes, small round antique-gold spectacles, subtle freckles",
+        "accent_color": "warm gold",
+    },
+    "Theron": {
+        "description": "Historical Reviewer — critiques historical analysis",
+        "gender": "male",
+        "hair": "grey-streaked dark hair, slicked back",
+        "features": "stern authoritative look, deep brown eyes, thin-framed titanium glasses, furrowed brow",
+        "accent_color": "steel grey",
+    },
+    "Aurelia": {
+        "description": "Economist — analyzes economic impact",
+        "gender": "female",
+        "hair": "sleek golden-blonde hair in a professional updo",
+        "features": "confident calculating gaze, hazel-gold eyes, minimalist gold earring, sharp cheekbones",
+        "accent_color": "gold",
+    },
+    "Callisto": {
+        "description": "Economic Reviewer — critiques economic analysis",
+        "gender": "male",
+        "hair": "platinum silver undercut",
+        "features": "analytical cold gaze, ice-blue eyes, translucent data-visor over one eye",
+        "accent_color": "ice blue",
+    },
+    "Sage": {
+        "description": "Sociologist — analyzes social implications",
+        "gender": "male",
+        "hair": "natural black curly hair with a few silver streaks",
+        "features": "kind thoughtful expression, warm dark brown eyes, short beard, earth-tone scarf",
+        "accent_color": "earth green",
+    },
+    "Liora": {
+        "description": "Sociological Reviewer — critiques social analysis",
+        "gender": "female",
+        "hair": "soft chestnut-brown wavy hair past shoulders",
+        "features": "empathetic gentle smile, warm hazel eyes, teardrop pendant necklace",
+        "accent_color": "rose pink",
+    },
+    "Nova": {
+        "description": "Futurist — predicts future scenarios",
+        "gender": "female",
+        "hair": "short electric-blue pixie cut with neon tips",
+        "features": "visionary wide-eyed look, bright teal eyes, chrome collar, star-field reflected in pupils",
+        "accent_color": "electric teal",
+    },
+    "Orion": {
+        "description": "Future Reviewer — critiques predictions for groundedness",
+        "gender": "male",
+        "hair": "dark navy-blue wavy hair, medium length",
+        "features": "contemplative steady gaze, deep indigo eyes, constellation tattoo on temple, subtle stubble",
+        "accent_color": "deep indigo",
+    },
+    "Quill": {
+        "description": "Content Writer — synthesizes luxury keynote content",
+        "gender": "male",
+        "hair": "tousled dark auburn hair, slightly long",
+        "features": "passionate inspired expression, bright green eyes, ink smudge on finger, open collar",
+        "accent_color": "ink blue",
+    },
+    "Sterling": {
+        "description": "Copy Reviewer — ensures luxury-quality writing",
+        "gender": "male",
+        "hair": "distinguished silver-white hair, perfectly groomed",
+        "features": "refined critical eye, grey-blue eyes, monocle-style smart lens, slight smirk",
+        "accent_color": "polished silver",
+    },
+    "Justice": {
+        "description": "Neutrality Guard — enforces ethical guardrails",
+        "gender": "female",
+        "hair": "straight platinum-blonde hair, shoulder length, parted in center",
+        "features": "solemn unwavering gaze, striking grey eyes, blindfold pulled up on forehead, symmetrical face",
+        "accent_color": "pure white",
+    },
+    "Paramount": {
+        "description": "Editor-in-Chief — final editorial authority",
+        "gender": "male",
+        "hair": "salt-and-pepper hair, swept back with authority",
+        "features": "commanding presence, piercing dark eyes, strong brow, high-tech earpiece, tailored collar",
+        "accent_color": "charcoal black",
+    },
+    "Prism": {
+        "description": "Visual Generator — creates images and infographics",
+        "gender": "female",
+        "hair": "iridescent rainbow-gradient hair flowing down",
+        "features": "joyful creative spark in eyes, multicolored heterochromia eyes, prismatic light on skin",
+        "accent_color": "rainbow iridescent",
+    },
+    "Ratio": {
+        "description": "Screen Auditor — checks layout proportions",
+        "gender": "male",
+        "hair": "clean-shaven head with geometric tattoo patterns",
+        "features": "precise measured look, amber-brown eyes, golden-ratio spiral overlay faintly on skin",
+        "accent_color": "golden bronze",
+    },
+    "Sentinel": {
+        "description": "Final Validator — quality gate, checks all rules",
+        "gender": "male",
+        "hair": "short military-cut black hair",
+        "features": "vigilant protective glare, glowing orange-amber eyes, armored high collar, scar across cheek",
+        "accent_color": "dark crimson",
+    },
+    "Spark": {
+        "description": "Discussion Potential Analyst — scores engagement potential",
+        "gender": "female",
+        "hair": "wild spiky orange-red hair with electric highlights",
+        "features": "excited energetic grin, bright yellow-green eyes, electric sparks around hair tips",
+        "accent_color": "electric orange",
+    },
+    "Herald": {
+        "description": "LinkedIn Expert — crafts and publishes posts",
+        "gender": "male",
+        "hair": "medium brown wavy hair, professionally styled",
+        "features": "charismatic warm smile, confident blue eyes, crisp futuristic lapel with small emblem",
+        "accent_color": "LinkedIn blue",
+    },
+}
+
+# Build the prompt map from the structured definitions
+AGENT_PERSONAS = {}
+for _code, _def in AGENT_PERSONA_DEFS.items():
+    AGENT_PERSONAS[_code] = (
+        f"Anime style head and shoulders portrait of a {_def['gender']} character. "
+        f"{_def['hair']}. {_def['features']}. "
+        f"Futuristic sci-fi aesthetic, {_def['accent_color']} color accent, "
+        f"clean dark gradient background, detailed expressive anime eyes, "
+        f"soft cinematic lighting. "
+        f"No text, no words, no letters, no logos."
+    )
+
+PERSONAS_DIR = config.OUTPUT_DIR / "visuals" / "personas"
+PERSONAS_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def generate_persona_images(force: bool = False) -> dict:
+    """Generate persona images for all agents. Cached — only generates once.
+
+    Args:
+        force: If True, delete existing images and regenerate all.
+
+    Returns dict: codename -> image file path
+    """
+    import json as _json
+    from aibrief.pipeline.visuals import _generate_imagen, _generate_dalle
+
+    # Save the manifest for cross-project reuse
+    manifest_path = PERSONAS_DIR / "manifest.json"
+    manifest = {}
+    for codename, defs in AGENT_PERSONA_DEFS.items():
+        manifest[codename] = {
+            **defs,
+            "prompt": AGENT_PERSONAS[codename],
+            "image_file": f"{codename.lower()}.png",
+        }
+    manifest_path.write_text(
+        _json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    persona_paths = {}
+    for codename, prompt in AGENT_PERSONAS.items():
+        path = str(PERSONAS_DIR / f"{codename.lower()}.png")
+
+        if force and Path(path).exists():
+            Path(path).unlink()
+
+        if Path(path).exists() and Path(path).stat().st_size > 1000:
+            persona_paths[codename] = path
+            continue
+
+        print(f"  [Persona] Generating {codename}...")
+        result = _generate_imagen(prompt, path, aspect="1:1", size="1K")
+        if not result:
+            result = _generate_dalle(prompt, path, size="1024x1024")
+        if result:
+            persona_paths[codename] = path
+            print(f"  [Persona] {codename} saved")
+        else:
+            print(f"  [Persona] {codename} FAILED — will skip image")
+
+    return persona_paths
+
+
+# Agent codename lookup: from agent name to codename
+_AGENT_NAME_TO_CODENAME = {
+    "Historian": "Clio",
+    "historical Reviewer": "Theron",
+    "Economist": "Aurelia",
+    "economic Reviewer": "Callisto",
+    "Sociologist": "Sage",
+    "sociological Reviewer": "Liora",
+    "Futurist": "Nova",
+    "future/predictions Reviewer": "Orion",
+    "Content Writer": "Quill",
+    "Copy Reviewer": "Sterling",
+    "Pre-Visual Validator": "Sentinel",
+    "Post-Visual Validator": "Sentinel",
+    "Discussion Potential Analyst": "Spark",
+    "Editor-in-Chief": "Paramount",
+    "Screen Real Estate Auditor": "Ratio",
+}
+
+# Also map config agent names to codenames (for agent credits)
+_CONFIG_NAME_TO_CODENAME = {
+    "WorldPulseScanner": "Aria",
+    "ContentStrategist": "Marcus",
+    "NewsScout": "Sable",
+    "DesignDNA": "Vesper",
+    "Historian": "Clio",
+    "HistorianReviewer": "Theron",
+    "Economist": "Aurelia",
+    "EconomistReviewer": "Callisto",
+    "Sociologist": "Sage",
+    "SociologistReviewer": "Liora",
+    "Futurist": "Nova",
+    "FuturistReviewer": "Orion",
+    "ContentWriter": "Quill",
+    "CopyReviewer": "Sterling",
+    "NeutralityGuard": "Justice",
+    "EditorInChief": "Paramount",
+    "VisualGenerator": "Prism",
+    "ScreenAuditor": "Ratio",
+    "FinalValidator": "Sentinel",
+    "DiscussionPotentialAnalyst": "Spark",
+    "LinkedInExpert": "Herald",
+}
+
+
+def _resolve_debate_codenames(deb: dict) -> tuple:
+    """Resolve preparer and reviewer codenames from a debate entry.
+
+    Works with both new traces (have preparer_name/reviewer_name) and
+    old traces (only have pair string like 'Historian vs historical Reviewer [historical]').
+    """
+    prep_name = deb.get("preparer_name", "")
+    rev_name = deb.get("reviewer_name", "")
+
+    # If already have names, just look up codenames
+    if prep_name and rev_name:
+        return (_AGENT_NAME_TO_CODENAME.get(prep_name, ""),
+                _AGENT_NAME_TO_CODENAME.get(rev_name, ""))
+
+    # Parse from pair string: "Historian vs historical Reviewer [historical]"
+    pair = deb.get("pair", "")
+    # Remove the [label] part
+    if "[" in pair:
+        pair = pair[:pair.index("[")].strip()
+    # Also handle "RoundTable (all analysts)"
+    if "RoundTable" in pair:
+        return ("", "")
+
+    parts = pair.split(" vs ")
+    if len(parts) == 2:
+        prep_name = parts[0].strip()
+        rev_name = parts[1].strip()
+        return (_AGENT_NAME_TO_CODENAME.get(prep_name, ""),
+                _AGENT_NAME_TO_CODENAME.get(rev_name, ""))
+
+    return ("", "")
+
+
+# ═══════════════════════════════════════════════════════════════
+#  SECTION 5: DEBATES & JUDGMENTS
+# ═══════════════════════════════════════════════════════════════
+
+def _find_analyst_output(entries, debate_entry) -> dict:
+    """Find the analyst output that immediately precedes a DEBATE entry.
+
+    The trace stores phases like:
+      Analyst_historical → DEBATE (Historian vs historical Reviewer)
+    So the analyst output is the entry right before the DEBATE.
+    """
+    for i, e in enumerate(entries):
+        if e is debate_entry and i > 0:
+            prev = entries[i - 1]
+            if prev.get("phase", "").startswith("Analyst") or \
+               prev.get("phase", "") == "ContentSynthesis":
+                return prev.get("output", {})
+    return {}
+
+
+def _debate_new_page(cv, accent, title_text, font, bold):
+    """Start a fresh debate page with consistent header."""
+    cv.showPage()
+    cv.setFillColor(_hex("#faf9f5"))
+    cv.rect(0, 0, W, H, fill=1, stroke=0)
+    cv.setFillColor(accent)
+    cv.rect(0, H - 4, W, 4, fill=1, stroke=0)
+    y = H - M
+    if title_text:
+        y = _text(cv, title_text, M, y, bold, 14,
+                  _hex("#888888"), max_w=CW, align="center")
+        y -= 12
+    return y
+
+
+def _draw_chat_bubble(cv, x, y, w, lines_text, font_name, bold_name,
+                      header, header_color, body_color, bg_color,
+                      persona_img=None, icon_size=36, is_right=False):
+    """Draw a chat-message bubble with optional persona icon.
+
+    Returns the new y position after the bubble.
+
+    Layout (left-aligned):
+      [icon]  ┌─ header ─────────────┐
+              │ body text...          │
+              └───────────────────────┘
+
+    Layout (right-aligned):
+              ┌─ header ─────────────┐  [icon]
+              │ body text...          │
+              └───────────────────────┘
+    """
+    BUBBLE_PAD = 10
+    ICON_GAP = 8
+    TAIL_SIZE = 6
+
+    # Measure content height
+    text_w = w - 2 * BUBBLE_PAD
+    header_h = _measure_text(header, bold_name, 10, max_w=text_w) if header else 0
+    body_h = 0
+    for line in lines_text:
+        body_h += _measure_text(line, font_name, 9, max_w=text_w, leading=12)
+        body_h += 3  # inter-line gap
+
+    total_h = BUBBLE_PAD + header_h + 4 + body_h + BUBBLE_PAD
+    total_h = max(total_h, icon_size + 4)  # at least as tall as icon
+
+    # Position bubble and icon
+    if is_right:
+        bubble_x = x + (W - 2 * M) - w
+        icon_x = bubble_x + w + ICON_GAP
+    else:
+        icon_x = x
+        bubble_x = x + icon_size + ICON_GAP
+        # Adjust width to not overflow
+        w = min(w, W - 2 * M - icon_size - ICON_GAP)
+        text_w = w - 2 * BUBBLE_PAD
+
+    bubble_y = y - total_h
+
+    # Draw bubble background
+    cv.setFillColor(bg_color)
+    cv.roundRect(bubble_x, bubble_y, w, total_h, 6, fill=1, stroke=0)
+
+    # Draw tail triangle pointing toward the icon
+    cv.setFillColor(bg_color)
+    p = cv.beginPath()
+    if is_right:
+        # Tail on the right side
+        tx = bubble_x + w
+        ty = y - icon_size / 2
+        p.moveTo(tx, ty + TAIL_SIZE)
+        p.lineTo(tx + TAIL_SIZE, ty)
+        p.lineTo(tx, ty - TAIL_SIZE)
+    else:
+        # Tail on the left side
+        tx = bubble_x
+        ty = y - icon_size / 2
+        p.moveTo(tx, ty + TAIL_SIZE)
+        p.lineTo(tx - TAIL_SIZE, ty)
+        p.lineTo(tx, ty - TAIL_SIZE)
+    p.close()
+    cv.drawPath(p, fill=1, stroke=0)
+
+    # Draw persona icon
+    if persona_img and Path(persona_img).exists():
+        _place_image(cv, persona_img, icon_x, y - icon_size,
+                     icon_size, icon_size)
+
+    # Draw header text
+    ty = y - BUBBLE_PAD
+    if header:
+        ty = _text(cv, header, bubble_x + BUBBLE_PAD, ty,
+                   bold_name, 10, header_color, max_w=text_w, leading=12)
+        ty -= 4
+
+    # Draw body lines
+    for line in lines_text:
+        ty = _text(cv, line, bubble_x + BUBBLE_PAD, ty,
+                   font_name, 9, body_color, max_w=text_w, leading=12)
+        ty -= 3
+
+    return bubble_y - 8  # gap after bubble
+
+
+def _build_debates(cv, tracer_flow, persona_paths, font, bold, colors):
+    """Build debate pages as chat-style conversations between agents.
+
+    Uses chat bubbles:
+      - Preparer on the LEFT (blue-tinted bubbles)
+      - Reviewer on the RIGHT (warm-tinted bubbles)
+      - Each round shows the actual exchange text
+    """
+    if not tracer_flow:
+        return 0
+
+    entries = tracer_flow.get("entries", [])
+    debates = [e for e in entries if e.get("phase") == "DEBATE"]
+    if not debates:
+        return 0
+
+    accent = colors["accent"]
+    pages_created = 0
+
+    # ── Colors for chat bubbles ──
+    PREP_BG = Color(0.90, 0.94, 0.98, 1)     # light blue
+    PREP_HEADER = _hex("#1a5276")
+    PREP_BODY = _hex("#2c3e50")
+    REV_BG = Color(0.98, 0.93, 0.90, 1)      # warm peach
+    REV_HEADER = _hex("#922b21")
+    REV_BODY = _hex("#4a2520")
+    REVISION_BG = Color(0.92, 0.97, 0.92, 1)  # light green (revision)
+
+    # ══════ SECTION TITLE PAGE ══════
+    cv.setFillColor(_hex("#faf9f5"))
+    cv.rect(0, 0, W, H, fill=1, stroke=0)
+    cv.setFillColor(accent)
+    cv.rect(0, H - 4, W, 4, fill=1, stroke=0)
+
+    y = H - M
+    y = _text(cv, "Debates & Judgments", M, y, bold, 32,
+              _hex("#1a1a2e"), max_w=CW, align="center")
+    y = _text(cv, "How AI Agents Argued to Improve Quality", M, y - 6,
+              font, 13, _hex("#888888"), max_w=CW, align="center")
+    y -= 30
+
+    total_rounds = sum(d.get("total_rounds", 0) for d in debates)
+    y = _text(cv, f"{len(debates)} Debates  \u2022  {total_rounds} Total Rounds",
+              M, y, bold, 16, _hex("#1a1a2e"), max_w=CW, align="center")
+    y -= 40
+
+    # Quick summary of all debates on title page
+    for deb in debates:
+        pair = deb.get("pair", "?")
+        rounds_data = deb.get("rounds", [])
+        n_rounds = deb.get("total_rounds", len(rounds_data))
+        final_score = rounds_data[-1].get("score", "?") if rounds_data else "?"
+        approved = rounds_data[-1].get("approved", False) if rounds_data else False
+
+        bar_color = _hex("#2ecc71") if approved else _hex("#e74c3c")
+        cv.setFillColor(bar_color)
+        cv.rect(M, y - 28, 5, 25, fill=1, stroke=0)
+
+        pair_short = pair.split("[")[0].strip() if "[" in pair else pair
+        y = _text(cv, pair_short, M + 14, y, bold, 13,
+                  _hex("#1a1a2e"), max_w=CW - 20)
+        status = (f"{'✓ APPROVED' if approved else '✗ REJECTED'} "
+                  f"after {n_rounds} round(s) \u2014 Final score: {final_score}/10")
+        y = _text(cv, status, M + 14, y - 2, font, 10,
+                  bar_color, max_w=CW - 20)
+        y -= 16
+
+        if y < 80:
+            break
+
+    _text(cv, "Chat-style debate breakdowns on the following pages \u2192",
+          M, 30, font, 9, _hex("#aaaaaa"), max_w=CW, align="center")
+    cv.showPage()
+    pages_created += 1
+
+    # ══════ INDIVIDUAL DEBATE PAGES (CHAT STYLE) ══════
+    for deb in debates:
+        pair = deb.get("pair", "?")
+        rounds_data = deb.get("rounds", [])
+        label = deb.get("label", "")
+
+        if "RoundTable" in pair:
+            continue
+
+        if not label and "[" in pair:
+            label = pair[pair.index("[") + 1:].rstrip("]").strip()
+
+        prep_code, rev_code = _resolve_debate_codenames(deb)
+        prep_img = persona_paths.get(prep_code, "")
+        rev_img = persona_paths.get(rev_code, "")
+
+        # ── Page header ──
+        cv.setFillColor(_hex("#faf9f5"))
+        cv.rect(0, 0, W, H, fill=1, stroke=0)
+        cv.setFillColor(accent)
+        cv.rect(0, H - 4, W, 4, fill=1, stroke=0)
+
+        y = H - M
+        pair_short = pair.split("[")[0].strip() if "[" in pair else pair
+        y = _text(cv, pair_short, M, y, bold, 20,
+                  _hex("#1a1a2e"), max_w=CW, align="center")
+        if label:
+            y = _text(cv, f"Topic: {label}", M, y - 4, font, 11,
+                      _hex("#888888"), max_w=CW, align="center")
+        y -= 10
+
+        # ── Personas header row (smaller, inline) ──
+        icon_sm = 44
+        left_x = M + 20
+        right_x = W - M - icon_sm - 20
+        if prep_code and prep_img:
+            _place_image(cv, prep_img, left_x, y - icon_sm, icon_sm, icon_sm)
+            _text(cv, prep_code, left_x + icon_sm + 6, y - 14,
+                  bold, 11, PREP_HEADER, max_w=120)
+            _text(cv, "Preparer", left_x + icon_sm + 6, y - 28,
+                  font, 8, _hex("#888888"), max_w=80)
+        if rev_code and rev_img:
+            _place_image(cv, rev_img, right_x, y - icon_sm, icon_sm, icon_sm)
+            _text(cv, rev_code, right_x - 80, y - 14,
+                  bold, 11, REV_HEADER, max_w=120, align="right")
+            _text(cv, "Reviewer", right_x - 80, y - 28,
+                  font, 8, _hex("#888888"), max_w=80, align="right")
+
+        y -= icon_sm + 12
+
+        # ── Separator ──
+        cv.setStrokeColor(_hex("#e0ddd5"))
+        cv.setLineWidth(0.5)
+        cv.line(M, y, W - M, y)
+        y -= 12
+
+        page_title_for_cont = f"{pair_short} (continued)"
+        BUBBLE_W = CW * 0.72  # bubbles take ~72% of content width
+
+        # ── Chat conversation per round ──
+        for rd in rounds_data:
+            rnd_num = rd.get("round", 0)
+            score = rd.get("score", 0)
+            approved = rd.get("approved", False)
+
+            # Need space for at least one bubble (~100pt minimum)
+            if y < 120:
+                y = _debate_new_page(cv, accent, page_title_for_cont,
+                                     font, bold)
+                pages_created += 1
+
+            # ── Round divider ──
+            score_color = (_hex("#2ecc71") if score >= 8
+                           else _hex("#f39c12") if score >= 6
+                           else _hex("#e74c3c"))
+            cv.setFillColor(_hex("#e8e5de"))
+            cv.roundRect(W / 2 - 60, y - 14, 120, 16, 8, fill=1, stroke=0)
+            _text(cv, f"Round {rnd_num}", W / 2 - 55, y - 1,
+                  bold, 9, _hex("#666666"), max_w=110, align="center")
+            y -= 22
+
+            # ── PREPARER BUBBLE (left) ──
+            prep_sub = rd.get("preparer_submission", {})
+            prep_lines = []
+            if prep_sub:
+                if prep_sub.get("title"):
+                    prep_lines.append(f"\u201c{prep_sub['title']}\u201d")
+                if prep_sub.get("key_insight"):
+                    prep_lines.append(prep_sub["key_insight"][:200])
+                args = prep_sub.get("key_arguments", [])
+                for arg in args[:2]:
+                    prep_lines.append(f"\u25b8 {str(arg)[:120]}")
+                if prep_sub.get("confidence"):
+                    prep_lines.append(
+                        f"Confidence: {prep_sub['confidence']}/10")
+            else:
+                # Fallback for old traces without conversation data
+                prep_lines.append("(Submitted analysis for review)")
+
+            if y < 100:
+                y = _debate_new_page(cv, accent, page_title_for_cont,
+                                     font, bold)
+                pages_created += 1
+
+            prep_header = f"{prep_code or 'Preparer'} submits:"
+            y = _draw_chat_bubble(
+                cv, M, y, BUBBLE_W, prep_lines, font, bold,
+                header=prep_header,
+                header_color=PREP_HEADER, body_color=PREP_BODY,
+                bg_color=PREP_BG, persona_img=prep_img,
+                is_right=False,
+            )
+
+            # ── REVIEWER BUBBLE (right) ──
+            rev_fb = rd.get("reviewer_feedback", {})
+            rev_lines = []
+            if rev_fb:
+                rev_lines.append(f"Score: {rev_fb.get('score', score)}/10")
+                if rev_fb.get("verdict"):
+                    rev_lines.append(rev_fb["verdict"][:200])
+                for d in rev_fb.get("demands", [])[:3]:
+                    rev_lines.append(f"\u2192 {str(d)[:140]}")
+                for s in rev_fb.get("strengths", [])[:2]:
+                    rev_lines.append(f"\u2713 {str(s)[:120]}")
+            else:
+                # Fallback for old traces
+                rev_lines.append(f"Score: {score}/10")
+                verdict_text = rd.get("verdict", "")
+                if verdict_text:
+                    rev_lines.append(verdict_text[:180])
+                for d in rd.get("demands", [])[:3]:
+                    rev_lines.append(f"\u2192 {str(d)[:120]}")
+
+            if approved:
+                rev_lines.append("\u2705 APPROVED")
+
+            if y < 100:
+                y = _debate_new_page(cv, accent, page_title_for_cont,
+                                     font, bold)
+                pages_created += 1
+
+            rev_header = f"{rev_code or 'Reviewer'} responds:"
+            y = _draw_chat_bubble(
+                cv, M, y, BUBBLE_W, rev_lines, font, bold,
+                header=rev_header,
+                header_color=REV_HEADER, body_color=REV_BODY,
+                bg_color=REV_BG, persona_img=rev_img,
+                is_right=True,
+            )
+
+            # ── REVISION BUBBLE (left, green) — if preparer revised ──
+            revision = rd.get("preparer_revision", {})
+            if revision and not approved:
+                rev_lines2 = []
+                if revision.get("title"):
+                    rev_lines2.append(f"\u201c{revision['title']}\u201d")
+                if revision.get("key_insight"):
+                    rev_lines2.append(revision["key_insight"][:200])
+                args2 = revision.get("key_arguments", [])
+                for arg in args2[:2]:
+                    rev_lines2.append(f"\u25b8 {str(arg)[:120]}")
+                if revision.get("confidence"):
+                    rev_lines2.append(
+                        f"Confidence: {revision['confidence']}/10")
+
+                if rev_lines2:
+                    if y < 100:
+                        y = _debate_new_page(
+                            cv, accent, page_title_for_cont, font, bold)
+                        pages_created += 1
+
+                    y = _draw_chat_bubble(
+                        cv, M, y, BUBBLE_W, rev_lines2, font, bold,
+                        header=f"{prep_code or 'Preparer'} revises:",
+                        header_color=_hex("#1e8449"),
+                        body_color=_hex("#2d572c"),
+                        bg_color=REVISION_BG,
+                        persona_img=prep_img,
+                        is_right=False,
+                    )
+
+        # ── Final verdict box at bottom ──
+        if rounds_data:
+            final = rounds_data[-1]
+            final_approved = final.get("approved", False)
+            final_score = final.get("score", 0)
+            n_rounds = len(rounds_data)
+
+            if y < 60:
+                y = _debate_new_page(cv, accent, page_title_for_cont,
+                                     font, bold)
+                pages_created += 1
+
+            box_color = _hex("#2ecc71") if final_approved else _hex("#e74c3c")
+            box_y = max(y - 40, 20)
+            cv.setFillColor(_a(box_color, 0.1))
+            cv.roundRect(M, box_y, CW, 35, 6, fill=1, stroke=0)
+            cv.setFillColor(box_color)
+            cv.rect(M, box_y, 5, 35, fill=1, stroke=0)
+
+            verdict_label = ("\u2713 APPROVED" if final_approved
+                             else "\u2717 NOT APPROVED (max rounds reached)")
+            _text(cv, f"{verdict_label}  \u2014  Score: {final_score}/10 "
+                  f"after {n_rounds} round(s)",
+                  M + 14, box_y + 22, bold, 13, box_color, max_w=CW - 30)
+
+        cv.showPage()
+        pages_created += 1
+
+    return pages_created
+
+
+def _build_judgments(cv, tracer_flow, persona_paths, font, bold, colors):
+    """Build validation judgment pages showing pre-visual and post-visual results."""
+    if not tracer_flow:
+        return 0
+
+    entries = tracer_flow.get("entries", [])
+    validations = [e for e in entries
+                   if e.get("phase") in ("PreVisualValidation", "PostVisualValidation")]
+    if not validations:
+        return 0
+
+    accent = colors["accent"]
+
+    cv.setFillColor(_hex("#faf9f5"))
+    cv.rect(0, 0, W, H, fill=1, stroke=0)
+    cv.setFillColor(accent)
+    cv.rect(0, H - 4, W, 4, fill=1, stroke=0)
+
+    y = H - M
+    y = _text(cv, "Quality Judgments", M, y, bold, 28,
+              _hex("#1a1a2e"), max_w=CW, align="center")
+    y = _text(cv, "How the Validators Scored This Brief", M, y - 6,
+              font, 12, _hex("#888888"), max_w=CW, align="center")
+    y -= 30
+
+    # Sentinel persona image centered
+    sentinel_path = persona_paths.get("Sentinel", "")
+    if sentinel_path and Path(sentinel_path).exists():
+        img_size = 70
+        _place_image(cv, sentinel_path, W / 2 - img_size / 2,
+                     y - img_size, img_size, img_size)
+        y -= img_size + 8
+        _text(cv, "Sentinel — Quality Gate", M, y, bold, 11,
+              _hex("#1a1a2e"), max_w=CW, align="center")
+        y -= 20
+
+    for val_entry in validations:
+        phase = val_entry.get("phase", "")
+        output = val_entry.get("output", {})
+        if not output:
+            continue
+
+        total_score = output.get("total_score", 0)
+        approved = output.get("approved", False)
+        explanation = output.get("explanation", "")
+        critical = output.get("critical_failures", [])
+        verdict = output.get("verdict", "")
+
+        # Phase label
+        label = ("Pre-Visual Validation (Content & Structure)"
+                 if "Pre" in phase
+                 else "Post-Visual Validation (Layout & Visuals)")
+
+        score_color = (_hex("#2ecc71") if total_score >= 70
+                       else _hex("#f39c12") if total_score >= 50
+                       else _hex("#e74c3c"))
+
+        # Score box
+        cv.setFillColor(_a(score_color, 0.08))
+        cv.roundRect(M, y - 50, CW, 48, 6, fill=1, stroke=0)
+        cv.setFillColor(score_color)
+        cv.rect(M, y - 50, 5, 48, fill=1, stroke=0)
+
+        status = "✓ PASS" if approved else "✗ FAIL"
+        _text(cv, f"{label}", M + 14, y - 8, bold, 13,
+              _hex("#1a1a2e"), max_w=CW - 70)
+        _text(cv, f"{total_score}/100 {status}", W - M - 90, y - 8,
+              bold, 15, score_color, max_w=90)
+
+        if explanation:
+            expl_short = explanation[:200]
+            if len(explanation) > 200:
+                expl_short += "..."
+            _text(cv, expl_short, M + 14, y - 28, font, 9,
+                  _hex("#555555"), max_w=CW - 30, leading=11)
+
+        y -= 60
+
+        # Critical failures
+        if critical:
+            y = _text(cv, "Critical Failures:", M + 14, y, bold, 10,
+                      _hex("#e74c3c"), max_w=CW - 20)
+            for cf in critical[:4]:
+                cf_short = str(cf)[:100]
+                y = _text(cv, f"  ✗ {cf_short}", M + 14, y - 3, font, 9,
+                          _hex("#666666"), max_w=CW - 30, leading=11)
+            y -= 12
+
+        if y < 100:
+            break
+
+    # Overall verdict
+    if y > 60:
+        ko = tracer_flow.get("key_outputs", {})
+        combined = ko.get("validation_score", "?")
+        _text(cv, f"Combined Score: {combined}/100",
+              M, 30, bold, 11, _hex("#1a1a2e"), max_w=CW, align="center")
+
+    cv.showPage()
+    return 1
+
+
+# ═══════════════════════════════════════════════════════════════
 #  MAIN GENERATOR
 # ═══════════════════════════════════════════════════════════════
 
 def generate_poster(brief: dict, design: dict, story: dict,
                     visuals: dict = None, agents_info: list = None,
                     tracer_flow: dict = None, strategy: dict = None,
-                    output_path: str = None) -> str:
+                    output_path: str = None,
+                    persona_paths: dict = None) -> str:
     """Generate the complete poster PDF.
 
     Structure:
@@ -809,6 +1661,7 @@ def generate_poster(brief: dict, design: dict, story: dict,
         Pages 7-8:  Agent credits
         Page 9:     Run info summary
         Page 10:    Decision architecture
+        Pages 11+:  Debates & Judgments (with persona images)
     """
     if not output_path:
         slug = brief.get("brief_title", "AI_Brief")[:35]
@@ -901,7 +1754,7 @@ def generate_poster(brief: dict, design: dict, story: dict,
     # === AGENT CREDITS ===
     if agents_info:
         _build_agent_credits(pdf, agents_info, font_name, bold_name,
-                             colors, style_id)
+                             colors, style_id, persona_paths=persona_paths)
 
     # === RUN INFO ===
     _build_run_info(pdf, design, story, strategy, tracer_flow,
@@ -911,11 +1764,19 @@ def generate_poster(brief: dict, design: dict, story: dict,
     topic = story.get("headline", brief.get("brief_title", ""))
     _build_mind_map(pdf, tracer_flow, topic, font_name, bold_name, colors)
 
+    # === DEBATES & JUDGMENTS ===
+    ppaths = persona_paths or {}
+    debate_pages = _build_debates(pdf, tracer_flow, ppaths,
+                                  font_name, bold_name, colors)
+    judgment_pages = _build_judgments(pdf, tracer_flow, ppaths,
+                                     font_name, bold_name, colors)
+
     pdf.save()
     total_pages = 2 + min(len(content_pages), 4)  # cover + news + content
     if agents_info:
         total_pages += math.ceil(len(agents_info) / 7)
     total_pages += 2  # run info + mind map
+    total_pages += debate_pages + judgment_pages
     size_kb = Path(output_path).stat().st_size / 1024
     print(f"  [Poster] Saved: {output_path} ({size_kb:.0f} KB, "
           f"~{total_pages} pages)")

@@ -30,8 +30,14 @@ assets/
 *.wav
 *.m4a
 
-# Logs (regenerated at runtime)
+# Logs and runtime data (regenerated at runtime)
 aibrief/scheduler.log
+aibrief/last_run.json
+
+# Meta-analysis data (generated per run, not code)
+aibrief/data/debates/
+aibrief/data/validations/
+aibrief/data/runs_index.json
 
 # OS
 .DS_Store

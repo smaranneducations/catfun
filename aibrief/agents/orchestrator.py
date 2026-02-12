@@ -273,10 +273,24 @@ class AutonomousOrchestrator:
 
     def _argue(self, preparer, reviewer, initial_work: dict,
                label: str, context: dict) -> dict:
-        """Preparer and Reviewer argue until quality bar or max rounds."""
+        """Preparer and Reviewer argue until quality bar or max rounds.
+
+        Captures the FULL conversation each round for:
+          1. The trace (for PDF debate pages — chat-bubble style)
+          2. data/debates/{run_id}.json (for cross-run meta-analysis)
+        """
+        from aibrief.data.run_store import (
+            _extract_preparer_summary, _extract_reviewer_feedback,
+            store_debate,
+        )
+
         work = initial_work
         rounds = []
         for rnd in range(1, self.MAX_ROUNDS + 1):
+            # ── Snapshot preparer's current work ──
+            preparer_snapshot = _extract_preparer_summary(work)
+
+            # ── Reviewer evaluates ──
             review = reviewer.think(
                 f"Review this {label} work. Be demanding. "
                 f"Round {rnd}/{self.MAX_ROUNDS}.",
@@ -285,22 +299,61 @@ class AutonomousOrchestrator:
             score = review.get("overall_score", 0)
             approved = review.get("approved", False)
             demands = review.get("demands", [])
-            rounds.append({
-                "round": rnd, "score": score, "approved": approved,
+            verdict = review.get("verdict", review.get("summary", ""))
+
+            # ── Snapshot reviewer's full feedback ──
+            reviewer_snapshot = _extract_reviewer_feedback(review)
+
+            round_data = {
+                "round": rnd,
+                "score": score,
+                "approved": approved,
                 "demands_count": len(demands),
-            })
+                # Full conversation data (for chat-bubble PDF + meta-analysis)
+                "preparer_submission": preparer_snapshot,
+                "reviewer_feedback": reviewer_snapshot,
+                # Legacy fields (kept for backward compat)
+                "demands": [str(d)[:300] for d in demands[:6]],
+                "verdict": str(verdict)[:500],
+            }
+
             print(f"    Round {rnd}: score={score}/10, "
                   f"approved={approved}, demands={len(demands)}")
 
             if approved and score >= self.MIN_SCORE:
                 print(f"    \u2713 {label} APPROVED after {rnd} round(s)")
+                rounds.append(round_data)
                 break
+
             if rnd < self.MAX_ROUNDS:
                 work = preparer.respond_to_feedback(work, review)
+                # ── Capture what the preparer changed ──
+                revision_snapshot = _extract_preparer_summary(work)
+                round_data["preparer_revision"] = revision_snapshot
                 print(f"    \u2192 {preparer.name} revised")
 
+            rounds.append(round_data)
+
+        # ── Store in trace (for PDF rendering) ──
         self.tracer.log_debate(
-            f"{preparer.name} vs {reviewer.name} [{label}]", rounds)
+            pair_name=f"{preparer.name} vs {reviewer.name} [{label}]",
+            rounds=rounds,
+            preparer_name=preparer.name,
+            reviewer_name=reviewer.name,
+            label=label,
+        )
+
+        # ── Store in data/ (for cross-run meta-analysis) ──
+        store_debate(self.tracer.run_id, {
+            "label": label,
+            "preparer": {"name": preparer.name},
+            "reviewer": {"name": reviewer.name},
+            "total_rounds": len(rounds),
+            "final_score": rounds[-1].get("score", 0) if rounds else 0,
+            "final_approved": rounds[-1].get("approved", False) if rounds else False,
+            "rounds": rounds,
+        })
+
         return work
 
     # ═══════════════════════════════════════════════════════════
@@ -851,7 +904,8 @@ class AutonomousOrchestrator:
         tracer_flow = self._get_tracer_flow(
             pulse, strategy, design, validation, elapsed)
 
-        from aibrief.pipeline.poster_gen import generate_poster
+        from aibrief.pipeline.poster_gen import generate_poster, generate_persona_images
+        persona_paths = generate_persona_images()
         pdf_path = generate_poster(
             brief, design, story,
             visuals=visuals,
@@ -859,6 +913,7 @@ class AutonomousOrchestrator:
             tracer_flow=tracer_flow,
             strategy=strategy,
             output_path=output_path,
+            persona_paths=persona_paths,
         )
         return pdf_path
 
@@ -1071,14 +1126,16 @@ class AutonomousOrchestrator:
             li_result = post_brief(
                 pdf_path, post_text, story=story,
                 document_title=doc_title)
-            self._log_post(story, brief, li_post, li_result, design)
+            self._log_post(story, brief, li_post, li_result, design,
+                           pdf_path=pdf_path)
             return li_result
         else:
             print("  \u25b8 LinkedIn posting disabled in config")
             return {"status": "skipped"}
 
-    def _log_post(self, story, brief, li_post, li_result, design):
-        """Log post details to post_log.json."""
+    def _log_post(self, story, brief, li_post, li_result, design,
+                  pdf_path: str = ""):
+        """Log post details to post_log.json — stores everything for repost."""
         log_path = config.BASE_DIR / "post_log.json"
         if log_path.exists():
             log = json.loads(log_path.read_text(encoding="utf-8"))
@@ -1088,20 +1145,37 @@ class AutonomousOrchestrator:
 
         import time as _time
         log["posts"].append({
+            # ── Identifiers ──
             "post_id": li_result.get("post_id", ""),
             "url": li_result.get("url", ""),
-            "topic": story.get("headline", "?"),
-            "brief_title": brief.get("brief_title", "?"),
+            "tracer_id": self.tracer.run_id,
+            "date": _time.strftime("%Y-%m-%d %H:%M"),
+            "status": li_result.get("status", "?"),
+
+            # ── Content (for repost — no regeneration needed) ──
+            "post_text": li_post.get("post_text", ""),
             "document_title": li_post.get("document_title", ""),
+            "pdf_path": pdf_path,
+
+            # ── Story metadata ──
+            "topic": story.get("headline", "?"),
+            "news_url": story.get("news_url", ""),
+            "publisher": story.get("publisher", ""),
+            "brief_title": brief.get("brief_title", "?"),
+
+            # ── Design metadata ──
             "content_type": self.tracer.agent_outputs.get(
                 "ContentStrategist", {}).get("content_type", ""),
             "design_name": design.get("design_name", "?"),
             "design_theme": design.get("style_id", "?"),
+            "emotion": design.get("emotion", ""),
             "world_mood": self.tracer.agent_outputs.get(
                 "WorldPulseScanner", {}).get("mood", ""),
-            "date": _time.strftime("%Y-%m-%d %H:%M"),
-            "tracer_id": self.tracer.run_id,
-            "status": li_result.get("status", "?"),
+
+            # ── Scores ──
+            "discussion_score": self.tracer.agent_outputs.get(
+                "DiscussionPotentialAnalyst", {}).get(
+                    "engagement_score", ""),
         })
         log["topics_covered"].append(story.get("headline", "?"))
         log["total_posts"] = len(log["posts"])
@@ -1205,6 +1279,44 @@ class AutonomousOrchestrator:
                            f"(pre:{pre_score}, post:{post_score})"),
             }
 
+        # ── Save last_run snapshot (for --repost without regenerating) ──
+        last_run_path = config.BASE_DIR / "last_run.json"
+        last_run_data = {
+            "run_id": self.tracer.run_id,
+            "pdf_path": pdf_path,
+            "story": {
+                "headline": story.get("headline", ""),
+                "news_url": story.get("news_url", ""),
+                "publisher": story.get("publisher", ""),
+                "exact_news_headline": story.get("exact_news_headline", ""),
+            },
+            "brief_title": brief.get("brief_title", ""),
+            "design": {
+                "design_name": design.get("design_name", ""),
+                "style_id": design.get("style_id", ""),
+                "emotion": design.get("emotion", ""),
+            },
+            "validation_score": combined_score,
+            "linkedin_status": li_result.get("status", "not_run"),
+        }
+        # Generate LinkedIn post text if not already done (for blocked runs)
+        if not validation["approved"]:
+            # Still craft the post text so --repost can use it
+            hooks = (discussion or {}).get("discussion_hooks", [])
+            li_draft = self.linkedin_expert.craft_post(story, brief, hooks=hooks)
+            last_run_data["post_text"] = li_draft.get("post_text", "")
+            last_run_data["document_title"] = li_draft.get("document_title",
+                                                            brief.get("brief_title", ""))
+        else:
+            # Read from agent_outputs (NOT trace entries — those are truncated)
+            li_out = self.tracer.agent_outputs.get("LinkedInExpert", {})
+            last_run_data["post_text"] = li_out.get("post_text", "")
+            last_run_data["document_title"] = li_out.get(
+                "document_title", brief.get("brief_title", ""))
+        last_run_path.write_text(
+            json.dumps(last_run_data, indent=2, ensure_ascii=False),
+            encoding="utf-8")
+
         # ── Save Trace ──
         elapsed = time.time() - t0
         trace_path = self.tracer.save(final_output={
@@ -1225,6 +1337,41 @@ class AutonomousOrchestrator:
             "discussion_score": discussion.get("engagement_score"),
             "discussion_verdict": discussion.get("verdict"),
         })
+
+        # ── Store structured data for meta-analysis ──
+        from aibrief.data.run_store import index_run, store_validation
+        debates = [e for e in self.tracer.entries
+                   if e.get("phase") == "DEBATE"]
+        total_debate_rounds = sum(
+            d.get("total_rounds", len(d.get("rounds", [])))
+            for d in debates)
+
+        store_validation(
+            self.tracer.run_id, pre_val, post_val, combined_score)
+
+        index_run(
+            self.tracer.run_id,
+            topic=story.get("headline", ""),
+            news_url=story.get("news_url", ""),
+            publisher=story.get("publisher", ""),
+            content_type=strategy.get("content_type", ""),
+            emotion=design.get("emotion", ""),
+            style_id=design.get("style_id", ""),
+            palette_id=design.get("palette_id", ""),
+            design_name=design.get("design_name", ""),
+            pre_visual_score=pre_score,
+            post_visual_score=post_score,
+            combined_score=combined_score,
+            discussion_score=discussion.get("engagement_score", 0),
+            posted=validation["approved"],
+            post_url=li_result.get("url", ""),
+            total_debates=len(debates),
+            total_rounds=total_debate_rounds,
+            total_agents=len(self._get_agents_info()),
+            duration_seconds=elapsed,
+            pdf_path=pdf_path,
+            world_mood=pulse.get("mood", ""),
+        )
 
         print(f"\n{'=' * 65}")
         print(f"  AUTONOMOUS RUN COMPLETE | {elapsed:.0f}s ({elapsed/60:.1f} min)")
