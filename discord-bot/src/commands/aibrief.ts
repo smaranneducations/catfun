@@ -128,8 +128,10 @@ export const data = new SlashCommandBuilder()
   .setDescription("Start a new AI Brief — multi-agent content pipeline");
 
 export async function execute(interaction: ChatInputCommandInteraction) {
-  // Defer immediately — Discord gives only 3 seconds to respond
-  await interaction.deferReply();
+  // Defer may already be done in index.ts (must stay within Discord's 3s window)
+  if (!interaction.deferred && !interaction.replied) {
+    await interaction.deferReply();
+  }
 
   // Check if Python API is up
   const apiUp = await healthCheck();

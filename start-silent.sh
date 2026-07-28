@@ -112,15 +112,37 @@ sleep 1
 
 echo "[start] Launching API + Discord bot in background..."
 
-nohup "$PYTHON_BIN" -u -m aibrief.api --port 8900 \
-  >"$API_OUT" 2>"$API_ERR" </dev/null &
-API_PID=$!
-disown "$API_PID" 2>/dev/null || true
+# Spawn in a new session so closing Cursor/terminal does not kill services
+NODE_BIN="$(command -v node)"
+read -r API_PID BOT_PID < <(
+  PYTHON_BIN="$PYTHON_BIN" NODE_BIN="$NODE_BIN" BOT_ENTRY="$BOT_ENTRY" \
+  API_OUT="$API_OUT" API_ERR="$API_ERR" BOT_OUT="$BOT_OUT" BOT_ERR="$BOT_ERR" \
+  ROOT="$ROOT" python3 - <<'PY'
+import os, subprocess
+from pathlib import Path
 
-nohup node "$BOT_ENTRY" \
-  >"$BOT_OUT" 2>"$BOT_ERR" </dev/null &
-BOT_PID=$!
-disown "$BOT_PID" 2>/dev/null || true
+root = Path(os.environ["ROOT"])
+os.chdir(root)
+
+api = subprocess.Popen(
+    [os.environ["PYTHON_BIN"], "-u", "-m", "aibrief.api", "--port", "8900"],
+    stdout=open(os.environ["API_OUT"], "ab", buffering=0),
+    stderr=open(os.environ["API_ERR"], "ab", buffering=0),
+    stdin=subprocess.DEVNULL,
+    start_new_session=True,
+    cwd=str(root),
+)
+bot = subprocess.Popen(
+    [os.environ["NODE_BIN"], os.environ["BOT_ENTRY"]],
+    stdout=open(os.environ["BOT_OUT"], "ab", buffering=0),
+    stderr=open(os.environ["BOT_ERR"], "ab", buffering=0),
+    stdin=subprocess.DEVNULL,
+    start_new_session=True,
+    cwd=str(root),
+)
+print(api.pid, bot.pid)
+PY
+)
 
 {
   echo "api_pid=$API_PID"

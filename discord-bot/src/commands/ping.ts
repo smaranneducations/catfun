@@ -1,4 +1,4 @@
-import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
+import { ChatInputCommandInteraction, MessageFlags, SlashCommandBuilder } from "discord.js";
 import { healthCheck } from "../services/pipeline-client";
 
 export const data = new SlashCommandBuilder()
@@ -6,7 +6,9 @@ export const data = new SlashCommandBuilder()
   .setDescription("Check if the bot and pipeline API are alive");
 
 export async function execute(interaction: ChatInputCommandInteraction) {
-  await interaction.deferReply({ ephemeral: true });
+  if (!interaction.deferred && !interaction.replied) {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  }
 
   const start = Date.now();
   const apiUp = await healthCheck();

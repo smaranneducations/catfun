@@ -14,16 +14,27 @@
  *   (googleapis etc.) so /ping works even when Drive deps are slow.
  */
 
-import { Client, GatewayIntentBits, Partials, REST, Routes } from "discord.js";
+import {
+  Client,
+  GatewayIntentBits,
+  Partials,
+  REST,
+  Routes,
+  MessageFlags,
+  SlashCommandBuilder,
+} from "discord.js";
 import { CONFIG } from "./config";
 import { setClient } from "./utils/bot-client";
 import * as fs from "fs";
 import * as path from "path";
 import * as net from "net";
 
+// Lightweight command schemas only — heavy handlers load after defer
 import * as pingCommand from "./commands/ping";
-import * as aibriefCommand from "./commands/aibrief";
-import { handleInteraction } from "./handlers/interactions";
+
+const aibriefCommandData = new SlashCommandBuilder()
+  .setName("aibrief")
+  .setDescription("Start a new AI Brief — multi-agent content pipeline");
 
 // ═══════════════════════════════════════════════════════════════
 //  SINGLE-INSTANCE GUARD
@@ -183,7 +194,7 @@ client.once("ready" as any, async () => {
 });
 
 // ---- Event: Interactions ----
-client.on("interactionCreate", (interaction) => {
+client.on("interactionCreate", async (interaction) => {
   const type = interaction.isChatInputCommand() ? "CMD"
     : interaction.isButton() ? "BTN"
     : interaction.isStringSelectMenu() ? "SEL"
@@ -191,13 +202,31 @@ client.on("interactionCreate", (interaction) => {
     : "OTHER";
   const id = (interaction as any).customId || (interaction as any).commandName || "?";
   console.log(`[INTERACTION] ${type}: ${id} | channel: ${interaction.channelId} | user: ${interaction.user.tag}`);
-  handleInteraction(interaction);
+
+  try {
+    // Acknowledge slash commands within Discord's 3s window BEFORE loading heavy modules
+    if (interaction.isChatInputCommand() && !interaction.deferred && !interaction.replied) {
+      if (interaction.commandName === "ping") {
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+      } else {
+        await interaction.deferReply();
+      }
+    }
+
+    const { handleInteraction } = await import("./handlers/interactions");
+    await handleInteraction(interaction);
+  } catch (err) {
+    console.error("[INTERACTION ERROR]", err);
+    if (interaction.isRepliable() && (interaction.deferred || interaction.replied)) {
+      await interaction.editReply({ content: "Something went wrong handling that command." }).catch(() => {});
+    }
+  }
 });
 
 // ---- Register slash commands ----
 async function registerCommands() {
   const rest = new REST({ version: "10" }).setToken(CONFIG.DISCORD_BOT_TOKEN);
-  const commands = [pingCommand.data.toJSON(), aibriefCommand.data.toJSON()];
+  const commands = [pingCommand.data.toJSON(), aibriefCommandData.toJSON()];
 
   try {
     console.log("📝 Registering slash commands...");

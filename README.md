@@ -29,17 +29,35 @@ Autonomous multi-agent system that generates professional, visually rich PDF tho
 **Author:** Bhasker Kumar
 **Agent:** Orion Cael
 
-## Quick Start
+## Quick Start (macOS)
+
+Shared Node runtime lives **outside** this repo at `../local-node` (used by all projects). Do not install Node inside this folder.
 
 ```bash
+# 1) Ensure shared Node is on PATH (already set in ~/.zshrc if installed)
+export PATH="$(cd .. && pwd)/local-node/bin:$PATH"
+
+# 2) Python deps
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 
-# Set up .env with API keys (OPENAI_API_KEY, GEMINI_API_KEY, LINKEDIN_ACCESS_TOKEN)
+# 3) Discord bot deps (uses shared Node; creates local node_modules only)
+cd discord-bot && npm install && npm run build && cd ..
 
-# Run the full pipeline
+# 4) Copy secrets
+cp .env.example .env   # fill in Discord / OpenAI / Gemini / LinkedIn keys
+
+# 5) Run API + Discord bot
+./start-silent.sh
+./status-silent.sh
+```
+
+In Discord server **AB / AI Brief**, use `/ping` then `/aibrief`.
+
+```bash
+# Optional: run pipeline directly (no Discord)
 python -m aibrief.main
-
-# Scheduler: 3x daily at random times
 python -m aibrief.scheduler
 ```
 
