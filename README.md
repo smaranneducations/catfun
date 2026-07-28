@@ -61,6 +61,12 @@ python -m aibrief.main
 python -m aibrief.scheduler
 ```
 
+
+## Generated output
+
+PDFs and images are written to **`aibrief/output/`** at runtime (gitignored).  
+The old root `output/` and `assets/` folders were leftovers from an earlier video/cats project and are not used by AI Brief.
+
 ## Project Structure
 
 ```
