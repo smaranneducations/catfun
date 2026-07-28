@@ -2,19 +2,178 @@
 
 Posts the thought leadership brief as a document post on LinkedIn
 with proper unicode-formatted text.
+
+Access tokens expire. Prefer LINKEDIN_CLIENT_ID + LINKEDIN_CLIENT_SECRET +
+LINKEDIN_REFRESH_TOKEN in .env so we can refresh; otherwise set a new
+LINKEDIN_ACCESS_TOKEN manually when you see EXPIRED_ACCESS_TOKEN.
 """
+from __future__ import annotations
+
 import json
 import time
+import threading
 import requests
 from pathlib import Path
 from aibrief import config
 
+
+def _persist_linkedin_tokens(updates: dict) -> None:
+    """Merge token fields into the JSON file created by setup-linkedin-oauth (optional)."""
+    path = getattr(config, "LINKEDIN_OAUTH_TOKEN_FILE", None)
+    if not path:
+        return
+    try:
+        p = Path(path)
+        existing: dict = {}
+        if p.is_file():
+            existing = json.loads(p.read_text(encoding="utf-8"))
+        existing.update({k: v for k, v in updates.items() if v is not None})
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps(existing, indent=2), encoding="utf-8")
+    except Exception as e:
+        print(f"  [LinkedIn OAuth] Could not persist tokens to file: {e}")
+
 API = "https://api.linkedin.com/rest"
-HEADERS = {
-    "Authorization": f"Bearer {config.LINKEDIN_ACCESS_TOKEN}",
-    "LinkedIn-Version": config.LINKEDIN_API_VERSION,
-    "X-Restli-Protocol-Version": "2.0.0",
-}
+
+_token_lock = threading.Lock()
+_cached_access_token: str | None = None
+_token_expires_at: float = 0.0
+
+
+def _invalidate_token_cache() -> None:
+    global _cached_access_token, _token_expires_at
+    _cached_access_token = None
+    _token_expires_at = 0.0
+
+
+def _oauth_refresh() -> tuple[str | None, int]:
+    """Exchange refresh token for access token. Returns (access_token, expires_in)."""
+    cid = (config.LINKEDIN_CLIENT_ID or "").strip()
+    csec = (config.LINKEDIN_CLIENT_SECRET or "").strip()
+    refresh = (config.LINKEDIN_REFRESH_TOKEN or "").strip()
+    if not (cid and csec and refresh):
+        return None, 0
+
+    resp = requests.post(
+        "https://www.linkedin.com/oauth/v2/accessToken",
+        data={
+            "grant_type": "refresh_token",
+            "refresh_token": refresh,
+            "client_id": cid,
+            "client_secret": csec,
+        },
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        timeout=30,
+    )
+    if resp.status_code != 200:
+        print(f"  [LinkedIn OAuth] refresh failed: {resp.status_code} — {resp.text[:500]}")
+        return None, 0
+
+    data = resp.json()
+    access = data.get("access_token")
+    expires_in = int(data.get("expires_in", 3600))
+    new_refresh = data.get("refresh_token")
+    if new_refresh and new_refresh != refresh:
+        print(
+            "  [LinkedIn OAuth] LinkedIn returned a rotated refresh_token — "
+            "saved to linkedin-oauth-token.json if configured."
+        )
+    if not access:
+        return None, 0
+    to_save = {"access_token": access, "expires_in": expires_in}
+    if new_refresh:
+        to_save["refresh_token"] = new_refresh
+    _persist_linkedin_tokens(to_save)
+    return access, expires_in
+
+
+def get_effective_linkedin_token(force_refresh: bool = False) -> str:
+    """Bearer token for LinkedIn API calls (refreshes when OAuth env is configured)."""
+    global _cached_access_token, _token_expires_at
+
+    with _token_lock:
+        now = time.time()
+        if force_refresh:
+            _invalidate_token_cache()
+
+        oauth_configured = bool(
+            (config.LINKEDIN_CLIENT_ID or "").strip()
+            and (config.LINKEDIN_CLIENT_SECRET or "").strip()
+            and (config.LINKEDIN_REFRESH_TOKEN or "").strip()
+        )
+
+        if oauth_configured:
+            if (
+                _cached_access_token
+                and now < _token_expires_at - 300
+                and not force_refresh
+            ):
+                return _cached_access_token
+
+            access, expires_in = _oauth_refresh()
+            if access:
+                _cached_access_token = access
+                _token_expires_at = now + max(expires_in, 60)
+                print("  [LinkedIn OAuth] Access token obtained via refresh.")
+                return access
+
+            static = (config.LINKEDIN_ACCESS_TOKEN or "").strip()
+            if static:
+                print(
+                    "  [LinkedIn OAuth] Refresh failed — falling back to static LINKEDIN_ACCESS_TOKEN "
+                    "(may be expired)."
+                )
+                return static
+
+            raise RuntimeError(
+                "LinkedIn OAuth refresh failed and LINKEDIN_ACCESS_TOKEN is not set. "
+                "Check LINKEDIN_CLIENT_ID, LINKEDIN_CLIENT_SECRET, LINKEDIN_REFRESH_TOKEN."
+            )
+
+        static = (config.LINKEDIN_ACCESS_TOKEN or "").strip()
+        if not static:
+            raise RuntimeError(
+                "LinkedIn not configured: set LINKEDIN_ACCESS_TOKEN, or "
+                "LINKEDIN_CLIENT_ID + LINKEDIN_CLIENT_SECRET + LINKEDIN_REFRESH_TOKEN."
+            )
+        return static
+
+
+def _headers() -> dict:
+    return {
+        "Authorization": f"Bearer {get_effective_linkedin_token()}",
+        "LinkedIn-Version": config.LINKEDIN_API_VERSION,
+        "X-Restli-Protocol-Version": "2.0.0",
+    }
+
+
+def _linkedin_request(method: str, url: str, **kwargs) -> requests.Response:
+    """Perform request; on 401 EXPIRED_ACCESS_TOKEN, refresh once and retry."""
+    kwargs.setdefault("timeout", 30)
+    for attempt in range(2):
+        hdr = dict(kwargs.pop("headers", {}))
+        headers = {**_headers(), **hdr}
+        resp = requests.request(method, url, headers=headers, **kwargs)
+
+        if resp.status_code != 401:
+            return resp
+        if attempt == 1:
+            return resp
+
+        try:
+            err = resp.json()
+            msg = str(err.get("message", ""))
+            code = str(err.get("code", ""))
+        except Exception:
+            msg, code = resp.text[:200], ""
+
+        if "EXPIRED_ACCESS_TOKEN" in msg or "EXPIRED_ACCESS_TOKEN" in code:
+            print("  [LinkedIn OAuth] Access token rejected — forcing refresh and retry.")
+            _invalidate_token_cache()
+            get_effective_linkedin_token(force_refresh=True)
+            continue
+
+        return resp
 
 
 def _upload_pdf(pdf_path: str) -> str:
@@ -24,8 +183,6 @@ def _upload_pdf(pdf_path: str) -> str:
     """
     print(f"  [LinkedIn] Uploading PDF ({Path(pdf_path).stat().st_size // 1024} KB)...")
 
-    # Step 1: Initialise document upload
-    # Use the full person URN as-is
     owner_urn = config.LINKEDIN_PERSON_URN
     if not owner_urn.startswith("urn:"):
         owner_urn = f"urn:li:person:{owner_urn}"
@@ -35,11 +192,11 @@ def _upload_pdf(pdf_path: str) -> str:
             "owner": owner_urn,
         }
     }
-    resp = requests.post(
+    resp = _linkedin_request(
+        "POST",
         f"{API}/documents?action=initializeUpload",
-        headers={**HEADERS, "Content-Type": "application/json"},
+        headers={"Content-Type": "application/json"},
         json=init_payload,
-        timeout=30,
     )
 
     if resp.status_code != 200:
@@ -56,14 +213,14 @@ def _upload_pdf(pdf_path: str) -> str:
 
     print(f"  [LinkedIn] Document URN: {document_urn}")
 
-    # Step 2: Upload the actual file
     with open(pdf_path, "rb") as f:
         file_data = f.read()
 
+    token = get_effective_linkedin_token()
     upload_resp = requests.put(
         upload_url,
         headers={
-            "Authorization": f"Bearer {config.LINKEDIN_ACCESS_TOKEN}",
+            "Authorization": f"Bearer {token}",
             "Content-Type": "application/octet-stream",
         },
         data=file_data,
@@ -74,7 +231,7 @@ def _upload_pdf(pdf_path: str) -> str:
         print(f"  [LinkedIn] Upload failed: {upload_resp.status_code}")
         return ""
 
-    print(f"  [LinkedIn] PDF uploaded successfully")
+    print("  [LinkedIn] PDF uploaded successfully")
     return document_urn
 
 
@@ -86,10 +243,8 @@ def _create_text_post(text: str, document_urn: str = "",
     if not author.startswith("urn:"):
         author = f"urn:li:person:{author}"
 
-    # Dynamic, catchy document title — never generic "AI Strategy Brief"
     doc_title = document_title or "AI Strategy Brief"
 
-    # Try the newer /posts API first (supports documents natively)
     if document_urn:
         payload = {
             "author": author,
@@ -109,15 +264,14 @@ def _create_text_post(text: str, document_urn: str = "",
             },
         }
 
-        resp = requests.post(
+        resp = _linkedin_request(
+            "POST",
             f"{API}/posts",
-            headers={**HEADERS, "Content-Type": "application/json"},
+            headers={"Content-Type": "application/json"},
             json=payload,
-            timeout=30,
         )
 
         if resp.status_code in (200, 201):
-            # The /posts API returns the post ID in x-restli-id header
             post_id = resp.headers.get("x-restli-id", resp.text.strip('"'))
             url = f"https://www.linkedin.com/feed/update/{post_id}"
             print(f"  [LinkedIn] Document post created: {url}")
@@ -125,9 +279,8 @@ def _create_text_post(text: str, document_urn: str = "",
         else:
             print(f"  [LinkedIn] Document post failed: {resp.status_code}")
             print(f"  [LinkedIn] {resp.text[:300]}")
-            print(f"  [LinkedIn] Trying text-only post...")
+            print("  [LinkedIn] Trying text-only post...")
 
-    # Fallback: text-only post via UGC API
     payload = {
         "author": author,
         "lifecycleState": "PUBLISHED",
@@ -140,11 +293,11 @@ def _create_text_post(text: str, document_urn: str = "",
         },
     }
 
-    resp = requests.post(
+    resp = _linkedin_request(
+        "POST",
         "https://api.linkedin.com/v2/ugcPosts",
-        headers={**HEADERS, "Content-Type": "application/json"},
+        headers={"Content-Type": "application/json"},
         json=payload,
-        timeout=30,
     )
 
     if resp.status_code in (200, 201):
@@ -170,10 +323,14 @@ def post_brief(pdf_path: str, post_text: str, story: dict = None,
                        carousel view. Should be attention-grabbing, NOT generic.
     """
     print("\n  [LinkedIn] Starting post...")
+    try:
+        get_effective_linkedin_token()
+    except RuntimeError as e:
+        return {"status": "failed", "error": str(e), "url": "", "post_id": ""}
+
     if document_title:
         print(f"  [LinkedIn] Document title: {document_title}")
 
-    # Try document post first
     doc_urn = _upload_pdf(pdf_path)
 
     result = None
@@ -184,11 +341,9 @@ def post_brief(pdf_path: str, post_text: str, story: dict = None,
             result = None
 
     if not result:
-        # Fallback: text-only post
         print("  [LinkedIn] Falling back to text-only post...")
         result = _create_text_post(post_text)
 
-    # Store embedding for future semantic dedup
     if result.get("status") == "success" and story:
         try:
             from aibrief.pipeline.dedup import store_embedding

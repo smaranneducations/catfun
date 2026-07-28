@@ -11,6 +11,8 @@ exactly what came from config vs what came from which other agent.
 
 Each run produces a separate JSON file in aibrief/traces/.
 """
+from __future__ import annotations
+
 import json
 import time
 from pathlib import Path

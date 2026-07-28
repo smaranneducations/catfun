@@ -658,7 +658,18 @@ class AutonomousOrchestrator:
                       f"{len(incoming)} challenge(s)")
 
         self.tracer.log_debate("RoundTable (all analysts)", [
-            {"pair": k, "summary": str(v)[:100]}
+            {
+                "pair": k,
+                "summary": (
+                    v.get("rebuttal", v.get("challenge", v.get("main_point",
+                        v.get("perspective_title", v.get("summary", "")))))
+                    if isinstance(v, dict) else str(v)
+                )[:300],
+                "impact": (
+                    v.get("impact", v.get("acknowledgement", v.get("conclusion", "")))
+                    if isinstance(v, dict) else ""
+                )[:200],
+            }
             for k, v in challenges.items()
         ])
         return perspectives

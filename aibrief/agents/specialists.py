@@ -813,7 +813,11 @@ class LinkedInExpert(Agent):
             f"(before hashtags). Publisher: {publisher}. URL: {news_url}. "
             "The URL must be a PLAIN URL on its own line (NO Markdown). "
             "LinkedIn auto-detects URLs and makes them clickable. "
-            "NEVER use [text](url) format."
+            "NEVER use [text](url) format.\n\n"
+            "MANDATORY: After the source reference and before the hashtags, "
+            "add this line exactly as shown (with the emoji):\n"
+            "🤖 Want to generate documents like this with AI agents? "
+            "Join our Discord: https://discord.gg/sKahPAtR"
             + hooks_instruction,
             context={"story": story, "brief_summary": brief_content,
                      "news_url": news_url, "publisher": publisher},

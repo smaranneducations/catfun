@@ -1,27 +1,46 @@
 # Environment and secrets
 .env
-*.env.*
+.env.*
+!.env.example
+*.pem
+token.json
+client_secret*.json
+temp/linkedin-oauth-token.json
+temp/gdrive-oauth-token.json
 
 # Python
 __pycache__/
 *.py[cod]
 *$py.class
 *.egg-info/
+.eggs/
+*.egg
+.venv/
+venv/
 dist/
 build/
-venv/
-.venv/
 
-# IDE
+# Node
+node_modules/
+discord-bot/node_modules/
+discord-bot/dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE / editor
 .vscode/
 .idea/
 *.swp
 *.swo
 .cursor/
 
-# Generated output (PDFs, images, media)
-aibrief/output/
-aibrief/images/
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Runtime / generated output
 output/
 temp/
 assets/
@@ -29,21 +48,28 @@ assets/
 *.mp3
 *.wav
 *.m4a
+*.pdf
 
-# Logs and runtime data (regenerated at runtime)
+# Discord bot local DB
+discord-bot/data/
+*.db
+*.db-shm
+*.db-wal
+
+# aibrief runtime / logs / traces
+aibrief/output/
+aibrief/images/
+aibrief/traces/
 aibrief/scheduler.log
 aibrief/last_run.json
-
-# Meta-analysis data (generated per run, not code)
+aibrief/scheduler_state.json
+aibrief/post_log.json
 aibrief/data/debates/
 aibrief/data/validations/
 aibrief/data/runs_index.json
 
-# OS
-.DS_Store
-Thumbs.db
-desktop.ini
-
-# OAuth tokens / credentials
-token.json
-client_secret*.json
+# Windows leftovers (do not reintroduce)
+*.bat
+*.ps1
+*.vbs
+*.exe

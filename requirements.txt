@@ -12,3 +12,7 @@ Pillow
 # HTTP & environment
 requests
 python-dotenv
+
+# Discord bot local API
+fastapi
+uvicorn

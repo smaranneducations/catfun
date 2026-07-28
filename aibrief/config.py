@@ -1,15 +1,44 @@
 """Configuration for AI Brief — AI Thought Leadership PDF + LinkedIn Publisher."""
+from __future__ import annotations
+
+import json
 import os
 from pathlib import Path
 from dotenv import load_dotenv
 
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
 # Load .env from parent directory (shared with catfun)
-load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+load_dotenv(REPO_ROOT / ".env")
+
+
+def _env_nonempty(key: str) -> str | None:
+    v = os.getenv(key)
+    return v.strip() if v and str(v).strip() else None
+
+
+def _load_linkedin_token_file(path: Path) -> dict:
+    if not path.is_file():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
 
 # --- API Keys ---
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-LINKEDIN_ACCESS_TOKEN = os.getenv("LINKEDIN_ACCESS_TOKEN")
+
+# LinkedIn: tokens from .env override tokens saved by `npm run setup-linkedin-oauth` (JSON file).
+_tfp = _env_nonempty("LINKEDIN_OAUTH_TOKEN_FILE")
+LINKEDIN_OAUTH_TOKEN_FILE = Path(_tfp) if _tfp else (REPO_ROOT / "temp" / "linkedin-oauth-token.json")
+_linkedin_file = _load_linkedin_token_file(LINKEDIN_OAUTH_TOKEN_FILE)
+
+LINKEDIN_ACCESS_TOKEN = _env_nonempty("LINKEDIN_ACCESS_TOKEN") or _linkedin_file.get("access_token")
+# OAuth 2.0 — CLIENT_ID + CLIENT_SECRET + REFRESH_TOKEN refresh automatically (error 65602).
+LINKEDIN_CLIENT_ID = _env_nonempty("LINKEDIN_CLIENT_ID")
+LINKEDIN_CLIENT_SECRET = _env_nonempty("LINKEDIN_CLIENT_SECRET")
+LINKEDIN_REFRESH_TOKEN = _env_nonempty("LINKEDIN_REFRESH_TOKEN") or _linkedin_file.get("refresh_token")
 LINKEDIN_PERSON_URN = os.getenv("LINKEDIN_PERSON_URN", "urn:li:person:Ah-ZXoM8LR")
 LINKEDIN_API_VERSION = "202601"
 
