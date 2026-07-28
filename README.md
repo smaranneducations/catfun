@@ -37,8 +37,8 @@ Shared Node runtime lives **outside** this repo at `../local-node` (used by all 
 # 1) Ensure shared Node is on PATH (already set in ~/.zshrc if installed)
 export PATH="$(cd .. && pwd)/local-node/bin:$PATH"
 
-# 2) Python deps
-python3 -m venv .venv
+# 2) Python deps (needs Python 3.10+; Homebrew 3.12 recommended)
+/opt/homebrew/bin/python3.12 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 

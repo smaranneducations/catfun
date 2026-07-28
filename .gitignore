@@ -1,12 +1,15 @@
-# Environment and secrets
+# Environment and secrets — NEVER commit real credentials
 .env
 .env.*
 !.env.example
 *.pem
 token.json
 client_secret*.json
+**/credentials*.json
 temp/linkedin-oauth-token.json
 temp/gdrive-oauth-token.json
+temp/*oauth*
+temp/*token*
 
 # Python
 __pycache__/

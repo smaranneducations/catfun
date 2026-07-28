@@ -18,13 +18,16 @@ STATUS_FILE="$LOG_DIR/start-silent.status.txt"
 # Avoid Cursor/npm host env leaking into the bot process
 unset npm_config_devdir || true
 
-# Prefer project venv, then system python3
+# Prefer project venv (Python 3.12+), then Homebrew python3.12, then system python3
 PYTHON_BIN="$ROOT/.venv/bin/python"
 if [[ ! -x "$PYTHON_BIN" ]]; then
-  PYTHON_BIN="$ROOT/venv/bin/python"
-fi
-if [[ ! -x "$PYTHON_BIN" ]]; then
-  PYTHON_BIN="$(command -v python3)"
+  if [[ -x /opt/homebrew/bin/python3.12 ]]; then
+    PYTHON_BIN="/opt/homebrew/bin/python3.12"
+  elif [[ -x "$ROOT/venv/bin/python" ]]; then
+    PYTHON_BIN="$ROOT/venv/bin/python"
+  else
+    PYTHON_BIN="$(command -v python3)"
+  fi
 fi
 
 # Prefer shared local-node runtime (Projects/local-node)
