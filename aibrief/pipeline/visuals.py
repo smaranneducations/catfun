@@ -49,8 +49,25 @@ from aibrief.pipeline.image_cache import (
 # ═══════════════════════════════════════════════════════════════
 
 def _get_font(size: int, bold: bool = False):
-    names = (["arialbd.ttf", "Arial Bold.ttf", "segoeui.ttf"] if bold
-             else ["arial.ttf", "Arial.ttf", "segoeui.ttf"])
+    names = (
+        [
+            "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+            "/Library/Fonts/Arial Bold.ttf",
+            "/System/Library/Fonts/Supplemental/Arial.ttf",
+            "arialbd.ttf",
+            "Arial Bold.ttf",
+            "segoeui.ttf",
+        ]
+        if bold
+        else [
+            "/System/Library/Fonts/Supplemental/Arial.ttf",
+            "/Library/Fonts/Arial.ttf",
+            "/System/Library/Fonts/Helvetica.ttc",
+            "arial.ttf",
+            "Arial.ttf",
+            "segoeui.ttf",
+        ]
+    )
     for n in names:
         try:
             return ImageFont.truetype(n, size)
@@ -78,21 +95,24 @@ _imagen_exhausted = False  # Track quota exhaustion to skip retries
 
 
 def _generate_imagen(prompt: str, path: str, aspect: str = "1:1",
-                     size: str = "1K") -> str:
+                     size: str = "1K", *, allow_person: bool = False) -> str:
     """Generate an image using Google Imagen and save to path."""
     global _imagen_exhausted
     if _imagen_exhausted:
-        return ""  # Skip Imagen, go straight to DALL-E fallback
+        return ""  # Skip Imagen, go straight to OpenAI image fallback
+    if not (config.GEMINI_API_KEY or "").strip():
+        return ""
     try:
         from google.genai import types
         client = _get_imagen()
+        person = "allow_adult" if allow_person else "dont_allow"
         response = client.models.generate_images(
             model="imagen-4.0-generate-001",
             prompt=prompt,
             config=types.GenerateImagesConfig(
                 number_of_images=1,
                 aspect_ratio=aspect,
-                person_generation="dont_allow",
+                person_generation=person,
             ),
         )
         if response.generated_images:
@@ -104,34 +124,89 @@ def _generate_imagen(prompt: str, path: str, aspect: str = "1:1",
         return ""
     except Exception as e:
         err_str = str(e)
-        if "RESOURCE_EXHAUSTED" in err_str:
+        if "RESOURCE_EXHAUSTED" in err_str or "API_KEY_INVALID" in err_str or "API key not valid" in err_str:
             _imagen_exhausted = True
-            print(f"  [Imagen] Quota exhausted — switching to DALL-E fallback")
+            print(f"  [Imagen] Unavailable ({err_str[:80]}) — switching to OpenAI image fallback")
         else:
             print(f"  [Imagen] Error: {err_str[:120]}")
         return ""
 
 
 def _generate_dalle(prompt: str, path: str, size: str = "1024x1024") -> str:
-    """Fallback: generate an image using OpenAI DALL-E 3."""
+    """Fallback: generate an image using OpenAI image models (gpt-image-1 preferred)."""
+    if not (config.OPENAI_API_KEY or "").strip():
+        return ""
     try:
+        import base64
         from openai import OpenAI
         client = OpenAI(api_key=config.OPENAI_API_KEY)
-        response = client.images.generate(
-            model="dall-e-3",
-            prompt=prompt,
-            n=1,
-            size=size,
-            quality="standard",
-        )
-        image_url = response.data[0].url
-        img_data = requests.get(image_url, timeout=30).content
-        with open(path, "wb") as f:
-            f.write(img_data)
-        print(f"  [DALL-E] Saved ({len(img_data) // 1024} KB)")
+
+        # Map ReportLab/Imagen-ish sizes to supported OpenAI sizes
+        size_map = {
+            "1024x1024": "1024x1024",
+            "1024x1792": "1024x1536",
+            "1792x1024": "1536x1024",
+            "1:1": "1024x1024",
+            "3:4": "1024x1536",
+            "4:3": "1536x1024",
+        }
+        oa_size = size_map.get(size, "1024x1024")
+
+        last_err = None
+        for model in ("gpt-image-1", "dall-e-3", "dall-e-2"):
+            try:
+                kwargs = {"model": model, "prompt": prompt, "n": 1, "size": oa_size}
+                if model == "dall-e-3":
+                    kwargs["quality"] = "standard"
+                    # dall-e-3 only supports specific sizes
+                    if oa_size not in ("1024x1024", "1024x1792", "1792x1024"):
+                        kwargs["size"] = "1024x1024"
+                elif model == "dall-e-2":
+                    kwargs["size"] = "1024x1024"
+                response = client.images.generate(**kwargs)
+                item = response.data[0]
+                if getattr(item, "b64_json", None):
+                    img_data = base64.b64decode(item.b64_json)
+                elif getattr(item, "url", None):
+                    img_data = requests.get(item.url, timeout=60).content
+                else:
+                    raise RuntimeError(f"{model} returned no image payload")
+                with open(path, "wb") as f:
+                    f.write(img_data)
+                print(f"  [OpenAI Image:{model}] Saved ({len(img_data) // 1024} KB)")
+                return path
+            except Exception as e:
+                last_err = e
+                print(f"  [OpenAI Image:{model}] Error: {str(e)[:120]}")
+                continue
+        if last_err:
+            print(f"  [OpenAI Image] All models failed: {str(last_err)[:120]}")
+        return ""
+    except Exception as e:
+        print(f"  [OpenAI Image] Error: {str(e)[:120]}")
+        return ""
+
+
+def _generate_placeholder_persona(path: str, codename: str, accent_hex: str = "#4FC3F7") -> str:
+    """Local Pillow avatar so agent icons still appear when APIs fail."""
+    try:
+        rgb = _hex_to_rgb(accent_hex if accent_hex.startswith("#") else "#4FC3F7")
+        img = Image.new("RGB", (512, 512), (18, 18, 28))
+        draw = ImageDraw.Draw(img)
+        # Soft accent orb + initial
+        draw.ellipse((96, 96, 416, 416), fill=rgb)
+        draw.ellipse((120, 120, 392, 392), fill=(24, 24, 36))
+        initial = (codename or "?").strip()[:1].upper() or "?"
+        font = _get_font(180, bold=True)
+        bbox = draw.textbbox((0, 0), initial, font=font)
+        tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+        draw.text(((512 - tw) / 2, (512 - th) / 2 - 10), initial, fill=rgb, font=font)
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+        img.save(path, format="PNG")
+        print(f"  [Persona] Placeholder saved for {codename}")
         return path
     except Exception as e:
-        print(f"  [DALL-E] Error: {str(e)[:120]}")
+        print(f"  [Persona] Placeholder failed: {e}")
         return ""
 
 

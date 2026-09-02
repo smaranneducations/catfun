@@ -1013,7 +1013,11 @@ def generate_persona_images(force: bool = False) -> dict:
     Returns dict: codename -> image file path
     """
     import json as _json
-    from aibrief.pipeline.visuals import _generate_imagen, _generate_dalle
+    from aibrief.pipeline.visuals import (
+        _generate_imagen,
+        _generate_dalle,
+        _generate_placeholder_persona,
+    )
 
     # Save the manifest for cross-project reuse
     manifest_path = PERSONAS_DIR / "manifest.json"
@@ -1030,6 +1034,7 @@ def generate_persona_images(force: bool = False) -> dict:
     persona_paths = {}
     for codename, prompt in AGENT_PERSONAS.items():
         path = str(PERSONAS_DIR / f"{codename.lower()}.png")
+        defs = AGENT_PERSONA_DEFS.get(codename, {})
 
         if force and Path(path).exists():
             Path(path).unlink()
@@ -1039,9 +1044,27 @@ def generate_persona_images(force: bool = False) -> dict:
             continue
 
         print(f"  [Persona] Generating {codename}...")
-        result = _generate_imagen(prompt, path, aspect="1:1", size="1K")
+        # Personas are characters — Imagen must allow people
+        result = _generate_imagen(
+            prompt, path, aspect="1:1", size="1K", allow_person=True
+        )
         if not result:
             result = _generate_dalle(prompt, path, size="1024x1024")
+        if not result:
+            # Always provide a local icon so PDF/Discord never show blank agents
+            accent = defs.get("accent_color", "#4FC3F7")
+            # Map named colors to hex if needed
+            named = {
+                "soft cyan": "#4FC3F7",
+                "gold": "#FFD54F",
+                "violet": "#B39DDB",
+                "emerald": "#66BB6A",
+                "crimson": "#EF5350",
+                "amber": "#FFB74D",
+                "silver": "#B0BEC5",
+            }
+            accent_hex = accent if str(accent).startswith("#") else named.get(str(accent).lower(), "#4FC3F7")
+            result = _generate_placeholder_persona(path, codename, accent_hex)
         if result:
             persona_paths[codename] = path
             print(f"  [Persona] {codename} saved")
