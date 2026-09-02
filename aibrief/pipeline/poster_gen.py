@@ -1004,23 +1004,57 @@ PERSONAS_DIR = config.OUTPUT_DIR / "visuals" / "personas"
 PERSONAS_DIR.mkdir(parents=True, exist_ok=True)
 
 
+def _resolve_personas_dir() -> Path:
+    """Permanent agent icons — never tied to per-run output cleanup.
+
+    Search order:
+      1) PERSONAS_DIR env override
+      2) Shared store: <Projects>/personas  (sibling of local-node)
+      3) Project-local: <repo>/personas
+      4) Legacy cache: aibrief/output/visuals/personas
+    """
+    import os
+
+    env = (os.environ.get("PERSONAS_DIR") or "").strip()
+    if env:
+        p = Path(env)
+        p.mkdir(parents=True, exist_ok=True)
+        return p
+
+    repo = Path(config.REPO_ROOT)
+    candidates = [
+        repo.parent / "personas",          # shared across projects
+        repo / "personas",                 # project-local permanent
+        config.OUTPUT_DIR / "visuals" / "personas",  # legacy
+    ]
+    for c in candidates:
+        if c.is_dir() and any(c.glob("*.png")):
+            return c
+    # Default to shared Projects/personas even if empty (first create)
+    preferred = candidates[0]
+    preferred.mkdir(parents=True, exist_ok=True)
+    return preferred
+
+
 def generate_persona_images(force: bool = False) -> dict:
-    """Generate persona images for all agents. Cached — only generates once.
+    """Load permanent persona icons. Generate ONLY if a file is missing.
 
-    Args:
-        force: If True, delete existing images and regenerate all.
-
-    Returns dict: codename -> image file path
+    Icons are stored by agent codename (aria.png, orion.png, …) and reused
+    forever across runs/projects. They are NOT regenerated each PDF run.
     """
     import json as _json
+    import os
     from aibrief.pipeline.visuals import (
         _generate_imagen,
         _generate_dalle,
         _generate_placeholder_persona,
     )
 
-    # Save the manifest for cross-project reuse
-    manifest_path = PERSONAS_DIR / "manifest.json"
+    personas_dir = _resolve_personas_dir()
+    print(f"  [Persona] Using icon store: {personas_dir}")
+
+    # Save/update manifest beside the icons
+    manifest_path = personas_dir / "manifest.json"
     manifest = {}
     for codename, defs in AGENT_PERSONA_DEFS.items():
         manifest[codename] = {
@@ -1028,32 +1062,35 @@ def generate_persona_images(force: bool = False) -> dict:
             "prompt": AGENT_PERSONAS[codename],
             "image_file": f"{codename.lower()}.png",
         }
-    manifest_path.write_text(
-        _json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+    try:
+        manifest_path.write_text(
+            _json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+    except Exception as e:
+        print(f"  [Persona] Could not write manifest: {e}")
 
     persona_paths = {}
+    reused = 0
+    created = 0
     for codename, prompt in AGENT_PERSONAS.items():
-        path = str(PERSONAS_DIR / f"{codename.lower()}.png")
+        path = personas_dir / f"{codename.lower()}.png"
         defs = AGENT_PERSONA_DEFS.get(codename, {})
 
-        if force and Path(path).exists():
-            Path(path).unlink()
+        if force and path.exists():
+            path.unlink()
 
-        if Path(path).exists() and Path(path).stat().st_size > 1000:
-            persona_paths[codename] = path
+        if path.exists() and path.stat().st_size > 1000:
+            persona_paths[codename] = str(path)
+            reused += 1
             continue
 
-        print(f"  [Persona] Generating {codename}...")
-        # Personas are characters — Imagen must allow people
+        print(f"  [Persona] Missing {codename} — generating once into permanent store...")
         result = _generate_imagen(
-            prompt, path, aspect="1:1", size="1K", allow_person=True
+            prompt, str(path), aspect="1:1", size="1K", allow_person=True
         )
         if not result:
-            result = _generate_dalle(prompt, path, size="1024x1024")
+            result = _generate_dalle(prompt, str(path), size="1024x1024")
         if not result:
-            # Always provide a local icon so PDF/Discord never show blank agents
             accent = defs.get("accent_color", "#4FC3F7")
-            # Map named colors to hex if needed
             named = {
                 "soft cyan": "#4FC3F7",
                 "gold": "#FFD54F",
@@ -1062,15 +1099,23 @@ def generate_persona_images(force: bool = False) -> dict:
                 "crimson": "#EF5350",
                 "amber": "#FFB74D",
                 "silver": "#B0BEC5",
+                "deep navy blue": "#1A237E",
+                "warm amber": "#FFB300",
             }
-            accent_hex = accent if str(accent).startswith("#") else named.get(str(accent).lower(), "#4FC3F7")
-            result = _generate_placeholder_persona(path, codename, accent_hex)
+            accent_hex = (
+                accent if str(accent).startswith("#")
+                else named.get(str(accent).lower(), "#4FC3F7")
+            )
+            result = _generate_placeholder_persona(str(path), codename, accent_hex)
         if result:
-            persona_paths[codename] = path
-            print(f"  [Persona] {codename} saved")
+            persona_paths[codename] = str(path)
+            created += 1
+            print(f"  [Persona] {codename} saved permanently")
         else:
             print(f"  [Persona] {codename} FAILED — will skip image")
 
+    print(f"  [Persona] Ready: {len(persona_paths)} "
+          f"(reused={reused}, created={created})")
     return persona_paths
 
 

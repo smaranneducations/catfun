@@ -28,7 +28,7 @@ VISUALS_DIR = config.OUTPUT_DIR / "visuals"
 MANIFEST_PATH = VISUALS_DIR / "manifest.json"
 
 # Subdirectories
-PERSONAS_DIR = VISUALS_DIR / "personas"
+PERSONAS_DIR = VISUALS_DIR / "personas"  # legacy path; prefer Projects/personas via poster_gen._resolve_personas_dir
 BACKGROUNDS_DIR = VISUALS_DIR / "backgrounds"
 FOREGROUNDS_DIR = VISUALS_DIR / "foregrounds"
 COVERS_DIR = VISUALS_DIR / "covers"

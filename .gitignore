@@ -53,6 +53,10 @@ assets/
 *.m4a
 *.pdf
 
+# Permanent agent icons live in ../personas or ./personas (large binaries; keep local)
+personas/
+../personas/
+
 # Discord bot local DB
 discord-bot/data/
 *.db
