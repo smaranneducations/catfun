@@ -236,70 +236,104 @@ COLOR_PALETTES = [
 
 
 # ═══════════════════════════════════════════════════════════════
-#  10 FONT CONFIGURATIONS (Windows TTF + ReportLab fallbacks)
+#  10 FONT CONFIGURATIONS (macOS + Windows TTF + ReportLab fallbacks)
 # ═══════════════════════════════════════════════════════════════
 
-_WINFONTS = os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "Fonts")
+_WINFONTS = Path(os.environ.get("WINDIR", r"C:\Windows")) / "Fonts"
+_MAC_SUPP = Path("/System/Library/Fonts/Supplemental")
+_MAC_LIB = Path("/Library/Fonts")
 
+
+def _first_existing(*candidates: str | Path) -> str | None:
+    for c in candidates:
+        p = Path(c) if c else None
+        if p and p.is_file():
+            return str(p)
+    return None
+
+
+# Each font: id, display name, TTF candidates (Mac then Windows), ReportLab names, built-in fallbacks
 FONTS = [
     {"id": "georgia", "name": "Georgia",
      "style_desc": "Warm, elegant serif with calligraphic touches",
-     "ttf": os.path.join(_WINFONTS, "georgia.ttf"),
-     "ttf_bold": os.path.join(_WINFONTS, "georgiab.ttf"),
+     "ttf": lambda: _first_existing(
+         _MAC_SUPP / "Georgia.ttf", _MAC_LIB / "Georgia.ttf",
+         _WINFONTS / "georgia.ttf"),
+     "ttf_bold": lambda: _first_existing(
+         _MAC_SUPP / "Georgia Bold.ttf", _MAC_LIB / "Georgia Bold.ttf",
+         _WINFONTS / "georgiab.ttf"),
      "reg": "Georgia", "reg_bold": "Georgia-Bold",
      "fallback": "Times-Roman", "fallback_bold": "Times-Bold"},
     {"id": "palatino", "name": "Palatino Linotype",
      "style_desc": "Classical calligraphic warmth, Renaissance-inspired",
-     "ttf": os.path.join(_WINFONTS, "pala.ttf"),
-     "ttf_bold": os.path.join(_WINFONTS, "palab.ttf"),
+     "ttf": lambda: _first_existing(
+         _MAC_SUPP / "Palatino.ttc", _MAC_LIB / "Palatino.ttc",
+         _WINFONTS / "pala.ttf"),
+     "ttf_bold": lambda: _first_existing(
+         _MAC_SUPP / "Palatino.ttc", _MAC_LIB / "Palatino.ttc",
+         _WINFONTS / "palab.ttf"),
      "reg": "PalatinoLT", "reg_bold": "PalatinoLT-Bold",
      "fallback": "Times-Roman", "fallback_bold": "Times-Bold"},
     {"id": "times_nr", "name": "Times New Roman",
      "style_desc": "Classic newspaper authority, traditional gravitas",
-     "ttf": os.path.join(_WINFONTS, "times.ttf"),
-     "ttf_bold": os.path.join(_WINFONTS, "timesbd.ttf"),
+     "ttf": lambda: _first_existing(
+         _MAC_SUPP / "Times New Roman.ttf",
+         _WINFONTS / "times.ttf"),
+     "ttf_bold": lambda: _first_existing(
+         _MAC_SUPP / "Times New Roman Bold.ttf",
+         _WINFONTS / "timesbd.ttf"),
      "reg": "TimesNR", "reg_bold": "TimesNR-Bold",
      "fallback": "Times-Roman", "fallback_bold": "Times-Bold"},
     {"id": "trebuchet", "name": "Trebuchet MS",
      "style_desc": "Humanist sans-serif, friendly yet professional",
-     "ttf": os.path.join(_WINFONTS, "trebuc.ttf"),
-     "ttf_bold": os.path.join(_WINFONTS, "trebucbd.ttf"),
+     "ttf": lambda: _first_existing(
+         _MAC_SUPP / "Trebuchet MS.ttf",
+         _WINFONTS / "trebuc.ttf"),
+     "ttf_bold": lambda: _first_existing(
+         _MAC_SUPP / "Trebuchet MS Bold.ttf",
+         _WINFONTS / "trebucbd.ttf"),
      "reg": "Trebuchet", "reg_bold": "Trebuchet-Bold",
      "fallback": "Helvetica", "fallback_bold": "Helvetica-Bold"},
     {"id": "segoe", "name": "Segoe UI",
      "style_desc": "Clean modern tech-company aesthetic",
-     "ttf": os.path.join(_WINFONTS, "segoeui.ttf"),
-     "ttf_bold": os.path.join(_WINFONTS, "segoeuib.ttf"),
+     "ttf": lambda: _first_existing(_WINFONTS / "segoeui.ttf"),
+     "ttf_bold": lambda: _first_existing(_WINFONTS / "segoeuib.ttf"),
      "reg": "SegoeUI", "reg_bold": "SegoeUI-Bold",
      "fallback": "Helvetica", "fallback_bold": "Helvetica-Bold"},
     {"id": "impact", "name": "Impact",
      "style_desc": "Ultra-bold condensed, maximum visual punch",
-     "ttf": os.path.join(_WINFONTS, "impact.ttf"),
-     "ttf_bold": os.path.join(_WINFONTS, "impact.ttf"),
+     "ttf": lambda: _first_existing(
+         _MAC_SUPP / "Impact.ttf", _WINFONTS / "impact.ttf"),
+     "ttf_bold": lambda: _first_existing(
+         _MAC_SUPP / "Impact.ttf", _WINFONTS / "impact.ttf"),
      "reg": "ImpactFont", "reg_bold": "ImpactFont",
      "fallback": "Helvetica-Bold", "fallback_bold": "Helvetica-Bold"},
     {"id": "verdana", "name": "Verdana",
      "style_desc": "Wide, clear, screen-optimized readability",
-     "ttf": os.path.join(_WINFONTS, "verdana.ttf"),
-     "ttf_bold": os.path.join(_WINFONTS, "verdanab.ttf"),
+     "ttf": lambda: _first_existing(
+         _MAC_SUPP / "Verdana.ttf", _WINFONTS / "verdana.ttf"),
+     "ttf_bold": lambda: _first_existing(
+         _MAC_SUPP / "Verdana Bold.ttf", _WINFONTS / "verdanab.ttf"),
      "reg": "Verdana", "reg_bold": "Verdana-Bold",
      "fallback": "Helvetica", "fallback_bold": "Helvetica-Bold"},
     {"id": "calibri", "name": "Calibri",
      "style_desc": "Modern warmth, humanist sans, Microsoft flagship",
-     "ttf": os.path.join(_WINFONTS, "calibri.ttf"),
-     "ttf_bold": os.path.join(_WINFONTS, "calibrib.ttf"),
+     "ttf": lambda: _first_existing(_WINFONTS / "calibri.ttf"),
+     "ttf_bold": lambda: _first_existing(_WINFONTS / "calibrib.ttf"),
      "reg": "Calibri", "reg_bold": "Calibri-Bold",
      "fallback": "Helvetica", "fallback_bold": "Helvetica-Bold"},
     {"id": "consolas", "name": "Consolas",
      "style_desc": "Monospaced tech, code-inspired modernity",
-     "ttf": os.path.join(_WINFONTS, "consola.ttf"),
-     "ttf_bold": os.path.join(_WINFONTS, "consolab.ttf"),
+     "ttf": lambda: _first_existing(_WINFONTS / "consola.ttf"),
+     "ttf_bold": lambda: _first_existing(_WINFONTS / "consolab.ttf"),
      "reg": "Consolas", "reg_bold": "Consolas-Bold",
      "fallback": "Courier", "fallback_bold": "Courier-Bold"},
     {"id": "arial_black", "name": "Arial Black",
      "style_desc": "Heavy grotesque, bold industrial presence",
-     "ttf": os.path.join(_WINFONTS, "ariblk.ttf"),
-     "ttf_bold": os.path.join(_WINFONTS, "ariblk.ttf"),
+     "ttf": lambda: _first_existing(
+         _MAC_SUPP / "Arial Black.ttf", _WINFONTS / "ariblk.ttf"),
+     "ttf_bold": lambda: _first_existing(
+         _MAC_SUPP / "Arial Black.ttf", _WINFONTS / "ariblk.ttf"),
      "reg": "ArialBlack", "reg_bold": "ArialBlack",
      "fallback": "Helvetica-Bold", "fallback_bold": "Helvetica-Bold"},
 ]
@@ -309,31 +343,47 @@ FONTS = [
 #  FONT REGISTRATION
 # ═══════════════════════════════════════════════════════════════
 
-_registered: set[str] = set()
+# Cache actual ReportLab names returned (fixes bug where fallback was used
+# once, then later calls returned unregistered TimesNR-Bold and crashed).
+_registered_pairs: dict[str, tuple[str, str]] = {}
 
 
 def register_font(font_id: str) -> tuple[str, str]:
     """Register a font pair with ReportLab. Returns (regular_name, bold_name)."""
+    if font_id in _registered_pairs:
+        return _registered_pairs[font_id]
+
     cfg = next((f for f in FONTS if f["id"] == font_id), FONTS[0])
     reg, reg_b = cfg["reg"], cfg["reg_bold"]
-    if reg in _registered:
-        return reg, reg_b
+    fb, fb_b = cfg["fallback"], cfg["fallback_bold"]
+
     try:
-        ttf, ttf_b = cfg["ttf"], cfg["ttf_bold"]
-        if Path(ttf).exists():
+        ttf = cfg["ttf"]() if callable(cfg["ttf"]) else cfg["ttf"]
+        ttf_b = cfg["ttf_bold"]() if callable(cfg["ttf_bold"]) else cfg["ttf_bold"]
+        if ttf:
+            # Skip .ttc collections — ReportLab TTFont is unreliable with them
+            if str(ttf).lower().endswith(".ttc"):
+                raise ValueError(f"TTC not supported for Paragraph styles: {ttf}")
             pdfmetrics.registerFont(TTFont(reg, ttf))
-            if Path(ttf_b).exists() and ttf_b != ttf:
+            if ttf_b and ttf_b != ttf and not str(ttf_b).lower().endswith(".ttc"):
                 pdfmetrics.registerFont(TTFont(reg_b, ttf_b))
             else:
                 reg_b = reg
-            _registered.add(reg)
-            print(f"  [Font] Registered: {cfg['name']}")
+            # Required so Paragraph/ps2tt can resolve bold custom TTFonts
+            try:
+                pdfmetrics.registerFontFamily(
+                    reg, normal=reg, bold=reg_b, italic=reg, boldItalic=reg_b
+                )
+            except Exception:
+                pass
+            _registered_pairs[font_id] = (reg, reg_b)
+            print(f"  [Font] Registered: {cfg['name']} ({reg} / {reg_b})")
             return reg, reg_b
     except Exception as e:
         print(f"  [Font] Could not register {cfg['name']}: {e}")
-    _registered.add(reg)
-    fb, fb_b = cfg["fallback"], cfg["fallback_bold"]
-    print(f"  [Font] Using fallback: {fb}")
+
+    _registered_pairs[font_id] = (fb, fb_b)
+    print(f"  [Font] Using fallback: {fb} / {fb_b}")
     return fb, fb_b
 
 
